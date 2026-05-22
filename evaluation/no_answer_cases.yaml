@@ -1,0 +1,17 @@
+- name: missing_profile_beverage_recommendation
+  user_message: "내 취향에 맞는 술 추천해줘"
+  mocked_profile_status: "missing"
+  expected_intent: "INSUFFICIENT_DATA"
+  expected_answer_contains: "추천 근거"
+
+- name: no_location_nearby_venue
+  user_message: "근처에 내 취향의 술 파는 곳 있어?"
+  mocked_profile_status: "active"
+  lat_lng: null
+  expected_intent: "INSUFFICIENT_DATA"
+  expected_answer_contains: "위치"
+
+- name: out_of_scope_general_question
+  user_message: "오늘 주식 시장 어때?"
+  expected_intent: "OUT_OF_SCOPE"
+  expected_refused: true

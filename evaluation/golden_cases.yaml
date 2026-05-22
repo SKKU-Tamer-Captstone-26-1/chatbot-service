@@ -1,0 +1,13 @@
+- name: recommend_beverage_basic
+  user_message: "내 취향에 맞는 술을 추천해줘"
+  expected_intent: "RECOMMEND_BEVERAGE"
+  expected_card_types:
+    - "BEVERAGE_CARD"
+
+- name: find_nearby_venue_basic
+  user_message: "근처에 내 취향의 술 파는 곳 있어?"
+  lat: 37.123
+  lng: 127.123
+  expected_intent: "FIND_NEARBY_VENUE"
+  expected_card_types:
+    - "PURCHASE_OPTION_CARD"
