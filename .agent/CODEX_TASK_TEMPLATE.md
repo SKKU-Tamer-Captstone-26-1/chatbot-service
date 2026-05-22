@@ -3,7 +3,7 @@
 Copy this template when asking Codex/AI agent to work in this repo.
 
 ```text
-You are working in the ONTHEBLOCK ai-assistant-service repository.
+You are working in the ONTHEBLOCK ai-chatbot-service repository.
 
 Before changing files, read:
 - AGENT.md
@@ -16,10 +16,10 @@ Task:
 
 Important constraints:
 - This is a Python/gRPC service.
-- The assistant is separate from chat-service.
-- The assistant is shown as a modal from Home/Board screens.
+- The chatbot is separate from chat-service.
+- The chatbot is shown as a modal from Home/Board screens.
 - User identity must come from authenticated metadata, not request body user_id.
-- The assistant must answer in polite Korean.
+- The chatbot must answer in polite Korean.
 - Recommendation-service owns ranking, score breakdowns, and reason codes.
 - The LLM must only generate grounded natural-language responses.
 - RAG must not be used as the recommendation ranking engine.

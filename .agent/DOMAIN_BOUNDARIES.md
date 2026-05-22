@@ -1,25 +1,25 @@
-# Domain Boundaries — ONTHEBLOCK AI Assistant
+# Domain Boundaries — ONTHEBLOCK AI Chatbot
 
 ## Purpose
 
-This file defines the cross-service ownership boundaries the assistant must obey.
+This file defines the cross-service ownership boundaries the chatbot must obey.
 
-The assistant is an orchestration and explanation layer. It is not the owner of
+The chatbot is an orchestration and explanation layer. It is not the owner of
 identity, survey truth, recommendation ranking, or canonical map/place data.
 
 ---
 
 ## Ownership Table
 
-| Domain | Owner | Assistant May Do | Assistant Must Not Do |
+| Domain | Owner | Chatbot May Do | Chatbot Must Not Do |
 |---|---|---|---|
 | Identity/JWT | `auth-service` | Use authenticated context and caller profile when approved | Issue JWTs, accept client-supplied user_id |
 | Raw survey | `survey-service` | Use recommendation profile status/results | Read survey DB, edit answers, own raw answers |
 | Derived taste profile | `recommendation-service` | Request profile status and recommendation results | Own profile truth, regenerate profiles directly unless through API |
 | Recommendation ranking | `recommendation-service` | Explain returned score/reason codes | Let the LLM rank, rerank, or invent candidates |
 | Canonical place/menu/inventory/price | `map-service` / `place-service` | Use approved read-model snapshots or recommendation venue results | Read canonical map DB directly |
-| Human chat | `chat-service` | Be displayed as a separate modal UI | Mix assistant logs with human room messages by default |
-| Assistant conversation logs | `ai-assistant-service` | Store assistant messages, traces, feedback | Treat logs as raw survey truth |
+| Human chat | `chat-service` | Be displayed as a separate modal UI | Mix chatbot logs with human room messages by default |
+| Chatbot conversation logs | `ai-chatbot-service` | Store chatbot messages, traces, feedback | Treat logs as raw survey truth |
 
 ---
 
@@ -34,7 +34,7 @@ identity, survey truth, recommendation ranking, or canonical map/place data.
 
 ## Recommendation Rules
 
-The assistant may call recommendation APIs such as:
+The chatbot may call recommendation APIs such as:
 
 ```text
 GetProfileStatus
@@ -43,18 +43,18 @@ GetVenueRecommendations
 RecordRecommendationEvent
 ```
 
-The assistant must treat these outputs as authoritative for ranking and reason
+The chatbot must treat these outputs as authoritative for ranking and reason
 codes.
 
-The assistant must not call Qdrant directly unless explicitly approved as part of
-an assistant-owned retrieval experiment. Even then, Qdrant output must not become
+The chatbot must not call Qdrant directly unless explicitly approved as part of
+a chatbot-owned retrieval experiment. Even then, Qdrant output must not become
 final ranking.
 
 ---
 
 ## Map/Place Rules
 
-For nearby place questions, the assistant should use recommendation-service venue
+For nearby place questions, the chatbot should use recommendation-service venue
 recommendations or approved map read models.
 
 Facts may include:
@@ -78,16 +78,16 @@ If location is missing:
 
 ## Storage Rules
 
-Assistant-owned storage may include:
+Chatbot-owned storage may include:
 
 ```text
-assistant_conversations
-assistant_messages
-assistant_retrieval_traces
-assistant_feedback_events
+chatbot_conversations
+chatbot_messages
+chatbot_retrieval_traces
+chatbot_feedback_events
 ```
 
-Assistant storage must preserve traceability without becoming the canonical owner
+Chatbot storage must preserve traceability without becoming the canonical owner
 of survey, recommendation, or map data.
 
 ---

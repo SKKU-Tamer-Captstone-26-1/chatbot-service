@@ -1,0 +1,22 @@
+from chatbot_service.domain.intents import ChatbotIntent
+from chatbot_service.domain.schemas import ChatbotAnswer, ChatbotCard
+from chatbot_service.pipeline.context_builder import GroundedContext
+
+
+class ResponseBuilder:
+    def build_from_grounded_text(
+        self,
+        intent: ChatbotIntent,
+        answer: str,
+        context: GroundedContext,
+    ) -> ChatbotAnswer:
+        # Cards should be generated from recommendation-service results, not from LLM text.
+        cards: list[ChatbotCard] = []
+        return ChatbotAnswer(
+            intent=intent,
+            answer=answer,
+            confidence=context.confidence,
+            cards=cards,
+            used_sources=context.facts.get("used_sources", {}),
+            missing_facts=context.missing_facts,
+        )

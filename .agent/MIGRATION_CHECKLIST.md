@@ -1,15 +1,15 @@
 # Migration Checklist
 
-Use this when adding assistant-owned database tables.
+Use this when adding chatbot-owned database tables.
 
-## Allowed Assistant-Owned Tables
+## Allowed Chatbot-Owned Tables
 
 Examples:
 
-- `assistant_conversations`
-- `assistant_messages`
-- `assistant_retrieval_traces`
-- `assistant_feedback_events`
+- `chatbot_conversations`
+- `chatbot_messages`
+- `chatbot_retrieval_traces`
+- `chatbot_feedback_events`
 
 ## Required Fields to Consider
 
@@ -28,7 +28,7 @@ Message:
 ```text
 id
 conversation_id
-role: USER | ASSISTANT | SYSTEM
+role: USER | CHATBOT | SYSTEM
 content
 intent
 confidence

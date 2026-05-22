@@ -1,12 +1,12 @@
-# ONTHEBLOCK AI Assistant Service Agent Guide
+# ONTHEBLOCK AI Chatbot Service Agent Guide
 
 ## Purpose
 
 This file is the root instruction document for AI agents working on the
-`ai-assistant-service` repository.
+`ai-chatbot-service` repository.
 
 The service is a standalone Python gRPC service. It powers the ONTHEBLOCK
-assistant shown as a modal on Home and Board screens. It answers only app-domain
+chatbot shown as a modal on Home and Board screens. It answers only app-domain
 questions about alcohol recommendations, user taste, nearby venues, price,
 distance, and availability.
 
@@ -19,28 +19,28 @@ distance, and availability.
 4. Do not use the LLM as the recommendation ranking engine.
 5. Do not invent alcohols, venues, prices, distances, inventory, or user
    preferences.
-6. If retrieved app data is missing or low-confidence, the assistant must say it
+6. If retrieved app data is missing or low-confidence, the chatbot must say it
    cannot answer reliably.
 7. Default user-facing language is polite Korean.
 8. Keep changes small, reviewable, and documented.
 
 ## Service Boundaries
 
-The assistant is a consumer/orchestrator service, not a data owner for external
+The chatbot is a consumer/orchestrator service, not a data owner for external
 domains.
 
-| Service | Owns | Assistant May Do | Assistant Must Not Do |
+| Service | Owns | Chatbot May Do | Chatbot Must Not Do |
 |---|---|---|---|
 | `auth-service` | Identity, OAuth, JWT, user profile, coarse neighborhood | Validate caller context through authenticated metadata or gateway context | Accept `user_id` from client body as trusted identity |
 | `survey-service` | Raw survey answers and survey schema | Use recommendation-service profile status derived from survey data | Read survey DB directly or store raw survey as canonical data |
 | `recommendation-service` | Derived taste profiles, vectors, scoring metadata, recommendation logs | Call recommendation APIs for beverage/venue recommendations | Re-rank recommendations with LLM |
 | `map-service/place-service` | Canonical place, menu, inventory, price, location data | Use map read-model facts exposed through recommendation-service or approved APIs | Read canonical map DB directly |
-| `chat-service` | Human-to-human chat rooms, messages, unread, attachments | Remain separate from assistant conversations | Store assistant conversations as human chat messages unless explicitly designed |
-| `ai-assistant-service` | Assistant conversations, assistant messages, retrieval traces, prompt traces, feedback | Store assistant-owned logs for future evaluation/learning | Become source of truth for survey, map, auth, or recommendation data |
+| `chat-service` | Human-to-human chat rooms, messages, unread, attachments | Remain separate from chatbot conversations | Store chatbot conversations as human chat messages unless explicitly designed |
+| `ai-chatbot-service` | Chatbot conversations, chatbot messages, retrieval traces, prompt traces, feedback | Store chatbot-owned logs for future evaluation/learning | Become source of truth for survey, map, auth, or recommendation data |
 
-## Assistant Responsibilities
+## Chatbot Responsibilities
 
-The assistant should support these intents:
+The chatbot should support these intents:
 
 - `recommend_beverage`
 - `find_nearby_venue`
@@ -51,7 +51,7 @@ The assistant should support these intents:
 - `out_of_scope`
 - `insufficient_data`
 
-The assistant should return:
+The chatbot should return:
 
 - polite Korean natural-language answer
 - structured cards for UI rendering
@@ -65,7 +65,7 @@ The assistant should return:
 
 ```text
 Client modal
-  -> ai-assistant-service.AskAssistant
+  -> ai-chatbot-service.AskChatbot
       -> resolve authenticated user context
       -> classify intent
       -> call recommendation-service
@@ -116,10 +116,10 @@ Use gRPC-first design.
 Draft service:
 
 ```proto
-service AssistantService {
-  rpc AskAssistant(AskAssistantRequest) returns (AskAssistantResponse);
+service ChatbotService {
+  rpc AskChatbot(AskChatbotRequest) returns (AskChatbotResponse);
   rpc GetConversation(GetConversationRequest) returns (GetConversationResponse);
-  rpc RecordAssistantFeedback(RecordAssistantFeedbackRequest) returns (RecordAssistantFeedbackResponse);
+  rpc RecordChatbotFeedback(RecordChatbotFeedbackRequest) returns (RecordChatbotFeedbackResponse);
 }
 ```
 
@@ -132,17 +132,17 @@ Auth currently provides coarse neighborhood-level information. Detailed location
 for nearby venue recommendations should come from Map context or request fields
 such as `lat`, `lng`, and `radius_m`.
 
-If detailed location is unavailable, the assistant should ask for location
+If detailed location is unavailable, the chatbot should ask for location
 permission/context or return an insufficient-data response.
 
 ## Storage Direction
 
-Assistant-owned storage may include:
+Chatbot-owned storage may include:
 
-- `assistant_conversations`
-- `assistant_messages`
-- `assistant_retrieval_traces`
-- `assistant_feedback_events`
+- `chatbot_conversations`
+- `chatbot_messages`
+- `chatbot_retrieval_traces`
+- `chatbot_feedback_events`
 
 These records are for audit, evaluation, and future learning. They are not source
 of truth for survey, map, recommendation, or auth data.
@@ -163,7 +163,7 @@ Until the repository defines stricter tooling, prefer:
 Suggested structure:
 
 ```text
-src/assistant_service/
+src/chatbot_service/
 - main.py
 - config.py
 - server.py
@@ -180,7 +180,7 @@ src/assistant_service/
   - retrieval_context_builder.py
   - prompt_builder.py
   - response_verifier.py
-  - assistant_pipeline.py
+  - chatbot_pipeline.py
 - storage/
   - repositories.py
   - models.py
@@ -210,7 +210,7 @@ After changing code:
 Update docs when changing:
 
 - service boundaries
-- assistant API contract
+- chatbot API contract
 - response schema
 - prompt contract
 - RAG/no-answer policy

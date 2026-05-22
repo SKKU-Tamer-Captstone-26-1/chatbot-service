@@ -1,11 +1,11 @@
-# AI Agent Harness — ONTHEBLOCK AI Assistant Service
+# AI Agent Harness — ONTHEBLOCK AI Chatbot Service
 
 ## Purpose
 
 This harness defines how an AI agent must work in this repository.
 
 It prevents boundary violations, accidental production changes, hallucination-
-prone assistant behavior, and undocumented API/storage changes.
+prone chatbot behavior, and undocumented API/storage changes.
 
 ---
 
@@ -19,7 +19,7 @@ Read:
 
 1. `AGENTS.md`
 2. `.agent/DOMAIN_BOUNDARIES.md`
-3. Relevant `docs/assistant/*` files
+3. Relevant `docs/chatbot/*` files
 4. Relevant API/proto/storage files
 5. Existing implementation files that will be changed
 
@@ -109,7 +109,7 @@ Next recommended step:
 Ask for confirmation before:
 
 - Adding or changing gRPC API shape.
-- Adding assistant storage tables.
+- Adding chatbot storage tables.
 - Adding migrations.
 - Adding an LLM provider dependency.
 - Changing auth behavior.
@@ -125,15 +125,15 @@ Ask for confirmation before:
 - Never add service-account JSON keys.
 - Never hardcode LLM credentials.
 - Never read another service's database directly.
-- Never allow request body `user_id` for authenticated assistant actions.
+- Never allow request body `user_id` for authenticated chatbot actions.
 - Never make LLM output the source of truth for ranking.
 - Never invent app data.
 
 ---
 
-## Assistant-Specific Guardrail Checks
+## Chatbot-Specific Guardrail Checks
 
-Before completing assistant work, verify:
+Before completing chatbot work, verify:
 
 - Out-of-scope questions are refused.
 - Insufficient-data responses say that data is missing.

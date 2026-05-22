@@ -9,7 +9,7 @@ Use this checklist before marking an agent task complete.
 - [ ] Did not accept trusted `user_id` from public request body.
 - [ ] Did not issue or refresh JWTs.
 - [ ] Did not move recommendation ranking into the LLM.
-- [ ] Did not store canonical place/menu/inventory data in assistant-service.
+- [ ] Did not store canonical place/menu/inventory data in chatbot-service.
 
 ## LLM / RAG Safety
 
@@ -29,7 +29,7 @@ Use this checklist before marking an agent task complete.
 
 ## Storage Safety
 
-- [ ] New storage is assistant-owned only.
+- [ ] New storage is chatbot-owned only.
 - [ ] Migrations are documented if added.
 - [ ] No secrets are stored in code or committed files.
 - [ ] Retention/training implications are documented.

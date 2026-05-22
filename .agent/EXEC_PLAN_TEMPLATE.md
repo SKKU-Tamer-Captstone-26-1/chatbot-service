@@ -23,7 +23,7 @@ Use this template before non-trivial code or documentation work.
 | Survey ownership | none/low/medium/high | |
 | Recommendation ranking | none/low/medium/high | |
 | Map/place data | none/low/medium/high | |
-| Assistant storage | none/low/medium/high | |
+| Chatbot storage | none/low/medium/high | |
 | LLM prompt behavior | none/low/medium/high | |
 | Deployment/secrets | none/low/medium/high | |
 
