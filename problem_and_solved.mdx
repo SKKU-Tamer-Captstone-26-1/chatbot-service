@@ -1,0 +1,230 @@
+---
+title: "Chat System Problem and Solved Record"
+date: "2026-05-25"
+language: "ko"
+scope: "chat-service, Flutter client, shared chat proto"
+---
+
+# 채팅 시스템 문제 및 해결 기록
+
+이 문서는 2026-05-25 기준으로 확인한 채팅 시스템 버그와 해결 내용을 기록한다.
+현재 체크아웃은 `chatbot-service`이지만, 실제 문제의 소유 영역은 AI 챗봇이 아니라
+사람 간 그룹 채팅이다. 그래서 수정은 다음 세 곳에 적용되었다.
+
+- `../chat-service`: 사람 간 그룹 채팅 gRPC 백엔드
+- `../client/flutter_client`: Flutter 채팅 화면
+- `../on-the-block-infra/proto/chat/v1/chat.proto`: Flutter가 생성하는 공유 chat proto 원본
+
+## 1. 엔터로 메시지를 보낼 때 화면이 위로 올라가는 문제
+
+### 증상
+
+사용자가 채팅 입력창에서 타이핑 후 엔터를 누르면, 화면이 새로고침되는 것처럼 느껴지고
+메시지 리스트가 위쪽으로 튀는 현상이 있었다.
+
+### 원인
+
+Flutter 채팅방 화면에서 텍스트 전송 후 `sendTextMessage`만 호출하고, 그 다음
+`_loadMessages()`로 전체 메시지 목록을 다시 가져왔다. 즉, 새 메시지 하나를 추가해야 하는
+상황에서 전체 히스토리를 다시 로드하면서 스크롤 위치와 렌더링 상태가 흔들렸다.
+
+또한 입력창은 멀티라인 입력에 가까운 설정을 사용하고 있었기 때문에, 모바일/데스크톱 입력
+액션이 "전송"이라는 사용자 기대와 정확히 맞지 않았다.
+
+### 해결
+
+- `ChatRepository.sendTextMessage`가 `void` 대신 서버가 반환한 `GroupchatMessage`를 반환하도록 변경했다.
+- 채팅방 화면은 전송 성공 후 `_loadMessages()`를 다시 호출하지 않고, 반환된 메시지만
+  `_appendOrReplaceMessage`로 현재 리스트에 추가한다.
+- 중복 메시지는 `messageId` 또는 `sequenceNo` 기준으로 제거한다.
+- 입력창은 `TextInputAction.send`와 `onSubmitted`를 사용해 엔터/전송 액션이 실제 전송으로 이어지도록 했다.
+- 초기 로딩 또는 새 메시지 수신 시에는 명시적으로 하단으로 스크롤한다.
+
+### 변경 파일
+
+- [`../client/flutter_client/lib/features/chat/presentation/groupchat_room_screen.dart`](../client/flutter_client/lib/features/chat/presentation/groupchat_room_screen.dart)
+- [`../client/flutter_client/lib/features/chat/presentation/widgets/chat_input_bar.dart`](../client/flutter_client/lib/features/chat/presentation/widgets/chat_input_bar.dart)
+- [`../client/flutter_client/lib/features/chat/data/chat_repository.dart`](../client/flutter_client/lib/features/chat/data/chat_repository.dart)
+
+### 내 판단
+
+채팅 UI에서는 메시지 전송 후 전체 목록을 재조회하는 방식이 가장 구현은 쉽지만, 사용자에게는
+"화면이 새로고침된다"는 느낌을 만든다. 서버가 이미 `SendMessageResponse.message`를 주고
+있으므로, 정상 경로에서는 그 메시지를 append하고 스트림/히스토리 로드는 보정 경로로 두는
+것이 더 자연스럽다.
+
+## 2. 멤버가 3명인데 `- members`로 표시되는 문제
+
+### 증상
+
+실제 채팅방 멤버가 여러 명이어도 채팅방 상단에 `- members`처럼 잘못된 멤버 수가 표시되었다.
+
+### 원인
+
+Flutter mapper가 서버 응답에서 멤버 수를 받지 못해 `memberSummary: "-/-"`를 하드코딩했다.
+이후 채팅방 상단 AppBar에서 `memberSummary.split('/').first`를 사용해 첫 값을 꺼내고
+뒤에 `members`를 붙였다. 그래서 `-/-`가 `- members`로 렌더링되었다.
+
+### 해결
+
+- `ChatRoomSummary` proto에 `int64 member_count = 9;`를 추가했다.
+- `chat-service`의 `ListMyRooms` 응답에서 활성 멤버 수를 서버가 계산해 내려주도록 했다.
+- board-linked room 생성/조회 응답에서도 `member_count`를 채웠다.
+- Flutter `GroupchatRoomSummary` 모델에 `memberCount`를 추가했다.
+- Flutter 화면은 `memberCount > 0`이면 `3 members`처럼 실제 수를 우선 표시하고, 값이 없을 때만 안전한 fallback을 사용한다.
+
+### 변경 파일
+
+- [`../chat-service/proto/chat/v1/chat.proto`](../chat-service/proto/chat/v1/chat.proto)
+- [`../chat-service/internal/repository/postgres/repository.go`](../chat-service/internal/repository/postgres/repository.go)
+- [`../chat-service/internal/repository/memory/memory.go`](../chat-service/internal/repository/memory/memory.go)
+- [`../chat-service/internal/transport/grpc/server.go`](../chat-service/internal/transport/grpc/server.go)
+- [`../client/flutter_client/lib/features/chat/models/groupchat_models.dart`](../client/flutter_client/lib/features/chat/models/groupchat_models.dart)
+- [`../client/flutter_client/lib/features/chat/data/chat_repository.dart`](../client/flutter_client/lib/features/chat/data/chat_repository.dart)
+
+### 내 판단
+
+멤버 수는 서버 소유 데이터다. 클라이언트가 `"-/-"` 같은 placeholder를 조합해서 표시하면
+항상 실제 상태와 어긋날 수 있다. 이번 수정처럼 서버가 활성 멤버 수를 내려주고 Flutter는
+표시만 담당하는 구조가 더 안전하다.
+
+## 3. 이미지와 파일이 전송되지 않고 `grpc INTERNAL`로 실패하는 문제
+
+### 증상
+
+Flutter 로그는 다음과 같은 상태였다.
+
+```text
+DEV_UPLOAD_MIME: op=send_image create_content_type=image/png put_content_type=image/png
+DEV_ERROR_JSONL: ... operation="send_image" ... technicalMessage="grpc INTERNAL"
+
+DEV_UPLOAD_MIME: op=send_file create_content_type=application/pdf put_content_type=application/pdf
+DEV_ERROR_JSONL: ... operation="send_file" ... technicalMessage="grpc INTERNAL"
+```
+
+로그상 `create_content_type`과 `put_content_type`은 일치했다. 그래서 1차 원인은
+클라이언트가 PUT할 때 MIME을 잘못 보낸 것보다는, 서버의 signed URL 생성/읽기 URL 생성
+과정에서 난 오류가 `INTERNAL`로 뭉개진 쪽에 더 가까웠다.
+
+### 원인
+
+`chat-service`는 첨부 파일을 직접 저장하지 않고 Google Cloud Storage signed URL을 사용한다.
+이미지/파일 메시지를 보낼 때 흐름은 다음과 같다.
+
+1. 클라이언트가 `CreateAttachmentUploadURL` 호출
+2. 클라이언트가 signed PUT URL로 바이너리 업로드
+3. 클라이언트가 `SendMessage`에 object URL 전달
+4. 서버가 trusted bucket/path를 검증하고 내부 object name으로 정규화
+5. 서버가 클라이언트 전달용 signed read URL을 생성해서 응답
+
+이때 GCS signer 설정, 서비스 계정 권한, bucket 설정, read URL signer 중 하나가 실패하면
+기존 코드에서는 일반 오류가 gRPC `INTERNAL`로 매핑되었다. 클라이언트 입장에서는
+원인이 "서버 내부 오류" 외에는 보이지 않았다.
+
+또한 Flutter 쪽에서는 이미지/파일 메시지 전송 실패 시 같은 전송을 한 번 더 무조건 재시도했다.
+이 방식은 원인이 설정/권한 문제일 때 중복 호출만 만들고, 문제를 더 명확하게 만들지 못한다.
+
+### 해결
+
+- `chat-service`에 `ErrAttachmentUnavailable`을 추가했다.
+- upload/read signed URL 생성 실패는 `ErrAttachmentUnavailable`로 감싸고 gRPC `UNAVAILABLE`로 매핑했다.
+- Flutter는 이미지/파일 전송 시 무조건 중복 재시도하지 않고, 서버가 반환한 메시지를 append한다.
+- Flutter 개발 로그는 gRPC code뿐 아니라 message도 포함하도록 했다.
+- 이미지/파일 전송 후에도 전체 히스토리를 다시 불러오지 않고 서버 응답 메시지를 현재 리스트에 추가한다.
+
+### 남은 운영 확인 사항
+
+코드 레벨에서는 오류가 더 정확히 드러나도록 고쳤지만, 실제 배포 환경에서 다음은 별도로 확인해야 한다.
+
+- `GCP_STORAGE_BUCKET` 또는 `CHAT_GCS_BUCKET` 값
+- `GCP_SIGNING_SERVICE_ACCOUNT_EMAIL` 값
+- Cloud Run 런타임 서비스 계정이 signed URL 생성에 필요한 권한을 가지고 있는지
+- 업로드 signed URL 생성 시 사용한 `Content-Type`과 실제 PUT `Content-Type`이 일치하는지
+- private bucket read URL 생성이 정상 동작하는지
+
+### 변경 파일
+
+- [`../chat-service/internal/service/service.go`](../chat-service/internal/service/service.go)
+- [`../chat-service/internal/transport/grpc/server.go`](../chat-service/internal/transport/grpc/server.go)
+- [`../client/flutter_client/lib/features/chat/presentation/groupchat_room_screen.dart`](../client/flutter_client/lib/features/chat/presentation/groupchat_room_screen.dart)
+
+### 내 판단
+
+이 문제의 핵심은 "파일 업로드 실패" 하나가 아니라, 실패 지점이 관측되지 않는다는 점이었다.
+`INTERNAL`은 서버 버그처럼 보이지만, signed URL signer 설정 문제는 클라이언트가 같은 요청을
+반복한다고 해결되지 않는다. 그래서 `UNAVAILABLE`로 바꿔 "현재 attachment signer 경로가
+사용 불가능하다"는 의미를 드러내고, 로그에 실제 gRPC message를 남기는 방향이 맞다.
+
+## 4. 채팅방을 읽었는데 읽음 풍선이 사라지지 않는 문제
+
+### 증상
+
+채팅방에 들어가서 메시지를 읽었는데도 채팅 탭/목록의 unread bubble이 계속 남는 문제가 있었다.
+
+### 원인
+
+채팅방 화면은 `_markRoomRead()`를 호출해 서버에는 읽음 상태를 동기화했다. 하지만 App shell의
+전체 unread badge 상태는 별도로 관리되고 있었고, 채팅방 내부에서 읽음 처리가 성공해도
+상위 상태에 "다시 unread count를 가져와라"는 신호가 전달되지 않았다.
+
+### 해결
+
+- `GroupchatRoomScreen`에 `onRoomRead` callback을 추가했다.
+- `_markRoomRead()` 성공 후 `onRoomRead`를 호출한다.
+- `main.dart`의 app shell은 이 callback을 받아 `_refreshChatUnreadCount()`를 실행한다.
+
+### 변경 파일
+
+- [`../client/flutter_client/lib/features/chat/presentation/groupchat_room_screen.dart`](../client/flutter_client/lib/features/chat/presentation/groupchat_room_screen.dart)
+- [`../client/flutter_client/lib/main.dart`](../client/flutter_client/lib/main.dart)
+
+### 내 판단
+
+읽음 상태의 authoritative source는 서버다. 하지만 Flutter 화면의 badge는 로컬 상태이므로,
+서버 sync 성공 후 상위 상태를 갱신하는 이벤트가 필요하다. 이 callback은 backend rule을
+클라이언트가 재구현하지 않으면서도 UI를 최신 상태로 맞추는 최소 변경이다.
+
+## 5. 검증 결과
+
+다음 검증을 통과했다.
+
+```bash
+GOCACHE=/tmp/go-build-cache go test ./...
+flutter analyze
+flutter test
+git diff --check
+```
+
+검증 범위:
+
+- `chat-service` 전체 Go 테스트
+- Flutter 정적 분석
+- Flutter widget test
+- 수정된 세 repo의 whitespace check
+
+주의:
+
+- `../client/flutter_client/ios/Podfile.lock`는 작업 전부터 변경되어 있었고, 이번 수정에서 건드리지 않았다.
+- `chatbot-service` 자체 코드는 이번 버그의 소유 영역이 아니므로 수정하지 않았다.
+
+## 참고 자료
+
+- Flutter `TextField.onSubmitted` 공식 문서: https://api.flutter.dev/flutter/material/TextField/onSubmitted.html
+- gRPC status codes 공식 문서: https://grpc.io/docs/guides/status-codes/
+- gRPC error handling 공식 문서: https://grpc.io/docs/guides/error/
+- Google Cloud Storage signed URLs 공식 문서: https://cloud.google.com/storage/docs/access-control/signed-urls
+- Google Cloud Storage V4 signed upload URL 예제: https://cloud.google.com/storage/docs/samples/storage-generate-upload-signed-url-v4
+- Protocol Buffers best practices 공식 문서: https://protobuf.dev/best-practices/dos-donts/
+
+## 요약
+
+이번 문제는 하나의 버그가 아니라 네 가지 계층 문제가 함께 나타난 것이다.
+
+1. 전송 후 전체 메시지 재로딩 때문에 화면이 튀었다.
+2. 서버가 멤버 수를 내려주지 않아 Flutter가 placeholder를 잘못 표시했다.
+3. attachment signer 실패가 `INTERNAL`로 숨겨져 이미지/파일 실패 원인을 알기 어려웠다.
+4. 읽음 상태는 서버에 반영됐지만 상위 Flutter unread badge가 갱신되지 않았다.
+
+해결 방향은 공통적으로 같다. 서버가 소유한 상태는 서버가 내려주고, Flutter는 그 상태를 표시한다.
+전송처럼 즉시 반영 가능한 이벤트는 서버 응답 메시지를 append하고, 전체 reload는 보정 경로로만 둔다.
+운영 오류는 `INTERNAL`로 숨기지 않고 클라이언트와 로그에서 구분 가능한 gRPC 상태로 노출한다.
