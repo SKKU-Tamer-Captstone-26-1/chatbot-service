@@ -2,13 +2,34 @@ syntax = "proto3";
 
 package ontheblock.chatbot.v1;
 
+option java_package = "com.ontheblock.chatbot.v1";
+option java_multiple_files = true;
+option go_package = "github.com/ontheblock/infra/proto/chatbot/v1;chatbotv1";
+
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
+// ChatbotService orchestrates authenticated chatbot conversations.
+//
+// Auth flow:
+// - Gateway validates JWT and forwards authenticated metadata.
+// - ai-chatbot-service resolves identity from auth metadata.
+// - Clients must not provide user_id or external_user_id in public requests.
+//
+// Recommendation flow:
+// - recommendation-service owns ranking, profile status, reason codes, and
+//   recommendation request/result IDs.
+// - ai-chatbot-service may explain and format returned results, but must not
+//   rank, rerank, or invent recommendation candidates.
 service ChatbotService {
   rpc AskChatbot(AskChatbotRequest) returns (AskChatbotResponse);
   rpc GetConversation(GetConversationRequest) returns (GetConversationResponse);
   rpc RecordChatbotFeedback(RecordChatbotFeedbackRequest) returns (RecordChatbotFeedbackResponse);
 }
+
+// =============================================================================
+// Enums
+// =============================================================================
 
 enum ChatbotIntent {
   CHATBOT_INTENT_UNSPECIFIED = 0;
@@ -22,10 +43,17 @@ enum ChatbotIntent {
   CHATBOT_INTENT_INSUFFICIENT_DATA = 8;
 }
 
+enum ChatbotResponseStatus {
+  CHATBOT_RESPONSE_STATUS_UNSPECIFIED = 0;
+  CHATBOT_RESPONSE_STATUS_ANSWERED = 1;
+  CHATBOT_RESPONSE_STATUS_REFUSED = 2;
+  CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA = 3;
+}
+
 enum ChatbotCardType {
   CHATBOT_CARD_TYPE_UNSPECIFIED = 0;
-  CHATBOT_CARD_TYPE_BEVERAGE = 1;
-  CHATBOT_CARD_TYPE_VENUE = 2;
+  CHATBOT_CARD_TYPE_BEVERAGE_RECOMMENDATION = 1;
+  CHATBOT_CARD_TYPE_VENUE_RECOMMENDATION = 2;
   CHATBOT_CARD_TYPE_PURCHASE_OPTION = 3;
   CHATBOT_CARD_TYPE_COMPARISON = 4;
   CHATBOT_CARD_TYPE_PROFILE_STATUS = 5;
@@ -39,6 +67,68 @@ enum ScreenContext {
   SCREEN_CONTEXT_CHAT = 4;
 }
 
+// Mirrors ontheblock.recommendation.v1.ProfileStatus for client-facing chatbot output.
+enum ProfileStatus {
+  PROFILE_STATUS_UNSPECIFIED = 0;
+  PROFILE_STATUS_MISSING = 1;
+  PROFILE_STATUS_PENDING_GENERATION = 2;
+  PROFILE_STATUS_ACTIVE = 3;
+  PROFILE_STATUS_STALE = 4;
+  PROFILE_STATUS_FAILED_GENERATION = 5;
+}
+
+// Mirrors ontheblock.recommendation.v1.BudgetMode for chatbot recommendation filters.
+enum BudgetMode {
+  BUDGET_MODE_UNSPECIFIED = 0;
+  BUDGET_MODE_SOFT = 1;
+  BUDGET_MODE_STRICT = 2;
+}
+
+// Mirrors ontheblock.recommendation.v1.VenueOptionType for venue and purchase cards.
+enum VenueOptionType {
+  VENUE_OPTION_TYPE_UNSPECIFIED = 0;
+  VENUE_OPTION_TYPE_NEAREST_REASONABLE = 1;
+  VENUE_OPTION_TYPE_BEST_PRICE = 2;
+  VENUE_OPTION_TYPE_BALANCED_BEST = 3;
+}
+
+// Mirrors ontheblock.recommendation.v1.VenueAvailabilityStatus for venue facts.
+enum VenueAvailabilityStatus {
+  VENUE_AVAILABILITY_STATUS_UNSPECIFIED = 0;
+  VENUE_AVAILABILITY_STATUS_AVAILABLE = 1;
+  VENUE_AVAILABILITY_STATUS_LIKELY_AVAILABLE = 2;
+  VENUE_AVAILABILITY_STATUS_UNKNOWN = 3;
+  VENUE_AVAILABILITY_STATUS_UNAVAILABLE = 4;
+}
+
+// Mirrors ontheblock.recommendation.v1.VenueFreshnessStatus for venue snapshot facts.
+enum VenueFreshnessStatus {
+  VENUE_FRESHNESS_STATUS_UNSPECIFIED = 0;
+  VENUE_FRESHNESS_STATUS_FRESH = 1;
+  VENUE_FRESHNESS_STATUS_STALE = 2;
+  VENUE_FRESHNESS_STATUS_EXPIRED = 3;
+}
+
+enum ChatbotMessageRole {
+  CHATBOT_MESSAGE_ROLE_UNSPECIFIED = 0;
+  CHATBOT_MESSAGE_ROLE_USER = 1;
+  CHATBOT_MESSAGE_ROLE_ASSISTANT = 2;
+  CHATBOT_MESSAGE_ROLE_SYSTEM = 3;
+}
+
+enum ChatbotFeedbackEventType {
+  CHATBOT_FEEDBACK_EVENT_TYPE_UNSPECIFIED = 0;
+  CHATBOT_FEEDBACK_EVENT_TYPE_HELPFUL = 1;
+  CHATBOT_FEEDBACK_EVENT_TYPE_NOT_HELPFUL = 2;
+  CHATBOT_FEEDBACK_EVENT_TYPE_DISMISS = 3;
+  CHATBOT_FEEDBACK_EVENT_TYPE_COPY = 4;
+  CHATBOT_FEEDBACK_EVENT_TYPE_REPORT = 5;
+}
+
+// =============================================================================
+// AskChatbot
+// =============================================================================
+
 message AskChatbotRequest {
   string conversation_id = 1;
   string message = 2;
@@ -47,6 +137,12 @@ message AskChatbotRequest {
   optional int32 radius_m = 5;
   optional int32 budget_hint_krw = 6;
   ScreenContext screen_context = 7;
+  string selected_beverage_id = 8;
+  string category = 9;
+  int32 beverage_limit = 10;
+  int32 venue_limit = 11;
+  BudgetMode budget_mode = 12;
+  google.protobuf.Struct client_context = 13;
 }
 
 message AskChatbotResponse {
@@ -62,6 +158,8 @@ message AskChatbotResponse {
   repeated string missing_facts = 10;
   repeated string follow_up_questions = 11;
   google.protobuf.Timestamp created_at = 12;
+  ProfileStatus profile_status = 13;
+  ChatbotResponseStatus status = 14;
 }
 
 message ChatbotCard {
@@ -69,49 +167,138 @@ message ChatbotCard {
   string title = 2;
   string subtitle = 3;
   string display_reason = 4;
-  double score = 5;
-  optional int32 price_krw = 6;
-  optional int32 distance_m = 7;
-  optional int32 estimated_travel_time_sec = 8;
-  string availability_status = 9;
-  repeated string reason_codes = 10;
-  string target_type = 11;
-  string target_id = 12;
+  repeated string reason_codes = 5;
+  google.protobuf.Struct metadata = 6;
+
+  oneof detail {
+    BeverageRecommendationCard beverage_recommendation = 20;
+    VenueRecommendationCard venue_recommendation = 21;
+    PurchaseOptionCard purchase_option = 22;
+    ComparisonCard comparison = 23;
+    ProfileStatusCard profile_status = 24;
+  }
+}
+
+message BeverageRecommendationCard {
+  int32 rank = 1;
+  string result_id = 2;
+  string beverage_id = 3;
+  string name_ko = 4;
+  string name_en = 5;
+  string category = 6;
+  double score = 7;
+  repeated string reason_codes = 8;
+  string explanation = 9;
+  google.protobuf.Struct metadata = 10;
+}
+
+message VenueRecommendationCard {
+  int32 rank = 1;
+  string result_id = 2;
+  string place_id = 3;
+  string name = 4;
+  string place_type = 5;
+  string address = 6;
+  VenueOptionType option_type = 7;
+  double distance_m = 8;
+  optional int32 price_krw = 9;
+  VenueAvailabilityStatus availability_status = 10;
+  VenueFreshnessStatus freshness_status = 11;
+  double score = 12;
+  repeated string reason_codes = 13;
+  string explanation = 14;
+  google.protobuf.Struct metadata = 15;
+  optional int32 estimated_travel_time_sec = 16;
+}
+
+message PurchaseOptionCard {
+  VenueOptionType option_type = 1;
+  string result_id = 2;
+  string beverage_id = 3;
+  string beverage_name = 4;
+  string place_id = 5;
+  string place_name = 6;
+  string place_type = 7;
+  string address = 8;
+  double distance_m = 9;
+  optional int32 price_krw = 10;
+  VenueAvailabilityStatus availability_status = 11;
+  VenueFreshnessStatus freshness_status = 12;
+  double score = 13;
+  repeated string reason_codes = 14;
+  string explanation = 15;
+  google.protobuf.Struct metadata = 16;
+  optional int32 estimated_travel_time_sec = 17;
+}
+
+message ComparisonCard {
+  repeated PurchaseOptionCard options = 1;
+  string summary = 2;
+}
+
+message ProfileStatusCard {
+  ProfileStatus status = 1;
+  int32 profile_revision = 2;
+  string survey_response_id = 3;
+  google.protobuf.Timestamp generated_at = 4;
+  string stale_reason = 5;
 }
 
 message UsedSources {
   string recommendation_request_id = 1;
-  int64 profile_revision = 2;
+  int32 profile_revision = 2;
   repeated string beverage_ids = 3;
   repeated string place_ids = 4;
   repeated string menu_item_ids = 5;
   repeated string inventory_item_ids = 6;
   repeated string price_offer_ids = 7;
   repeated string reason_codes = 8;
+  string beverage_recommendation_request_id = 9;
+  string venue_recommendation_request_id = 10;
+  repeated string beverage_result_ids = 11;
+  repeated string venue_result_ids = 12;
+  ProfileStatus profile_status = 13;
+  google.protobuf.Struct metadata = 14;
 }
+
+// =============================================================================
+// Conversation
+// =============================================================================
 
 message GetConversationRequest {
   string conversation_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
 }
 
 message GetConversationResponse {
   string conversation_id = 1;
   repeated ChatbotConversationMessage messages = 2;
+  string next_page_token = 3;
 }
 
 message ChatbotConversationMessage {
   string message_id = 1;
-  string role = 2;
+  ChatbotMessageRole role = 2;
   string content = 3;
   google.protobuf.Timestamp created_at = 4;
+  ChatbotIntent intent = 5;
+  repeated ChatbotCard cards = 6;
+  UsedSources used_sources = 7;
 }
+
+// =============================================================================
+// Feedback
+// =============================================================================
 
 message RecordChatbotFeedbackRequest {
   string message_id = 1;
-  string event_type = 2;
-  string metadata_json = 3;
+  ChatbotFeedbackEventType event_type = 2;
+  google.protobuf.Struct metadata = 3;
+  string idempotency_key = 4;
 }
 
 message RecordChatbotFeedbackResponse {
   bool recorded = 1;
+  bool duplicate = 2;
 }
