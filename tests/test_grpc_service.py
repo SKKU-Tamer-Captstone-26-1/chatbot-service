@@ -92,6 +92,7 @@ def _config() -> ChatbotConfig:
         async_conversation_persistence=True,
         persistence_queue_max_size=1000,
         persistence_retry_attempts=3,
+        metrics_snapshot_path="",
     )
 
 

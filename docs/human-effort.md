@@ -28,7 +28,36 @@ need human decisions or external infrastructure access.
 
 ## Load Test To Run With Human-Provided Infrastructure
 
-Run a staging load test with 500 concurrent users covering:
+Run smoke validation against a staging chatbot gRPC service:
+
+```bash
+chatbot-validate smoke
+```
+
+Run a staging load test with 500 concurrent users:
+
+```bash
+CHATBOT_VALIDATION_CONCURRENCY=500 CHATBOT_VALIDATION_REQUESTS=500 chatbot-validate load
+```
+
+If staging uses Redis/Memorystore, keep
+`CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT=true` so validation fails before
+traffic if the cache endpoint is unavailable.
+
+To include service-side metrics in validation output, run the chatbot service
+with:
+
+```bash
+CHATBOT_METRICS_SNAPSHOT_PATH=/tmp/chatbot-service-metrics.json
+```
+
+and run validation with:
+
+```bash
+CHATBOT_VALIDATION_SERVICE_METRICS_PATH=/tmp/chatbot-service-metrics.json
+```
+
+The validation harness covers:
 
 - repeated beverage recommendation asks
 - nearby venue asks across multiple location buckets
@@ -46,3 +75,8 @@ Success metrics to review:
 - LLM p50/p95/p99 latency
 - storage queue depth, retries, dead letters
 - no ranking reorder or invented candidate regressions
+
+The harness reports Redis preflight status, cold/warm p50, p95, p99, max
+latency, request failures, and optional service-side metrics snapshots. It also
+validates that answered recommendation cards carry source result IDs and rank
+order.

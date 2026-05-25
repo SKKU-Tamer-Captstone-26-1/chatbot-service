@@ -17,6 +17,7 @@ def test_load_config_defaults(monkeypatch):
         "CHATBOT_ASYNC_CONVERSATION_PERSISTENCE",
         "CHATBOT_PERSISTENCE_QUEUE_MAX_SIZE",
         "CHATBOT_PERSISTENCE_RETRY_ATTEMPTS",
+        "CHATBOT_METRICS_SNAPSHOT_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -42,6 +43,7 @@ def test_load_config_defaults(monkeypatch):
     assert config.async_conversation_persistence is True
     assert config.persistence_queue_max_size == 1000
     assert config.persistence_retry_attempts == 3
+    assert config.metrics_snapshot_path == ""
 
 
 def test_boolean_config_accepts_false(monkeypatch):

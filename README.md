@@ -51,6 +51,7 @@ chatbot-service/
   - README.md
   - generate_proto.sh
   - run_migrations.py
+  - validate_staging.py
 ```
 
 ## MVP Dependencies
@@ -121,6 +122,20 @@ Start the skeleton server:
 
 ```bash
 chatbot-service
+```
+
+Run non-production staging validation against an already-running gRPC service:
+
+```bash
+chatbot-validate smoke
+chatbot-validate load
+```
+
+or, without installing console scripts:
+
+```bash
+python3 scripts/validate_staging.py smoke
+python3 scripts/validate_staging.py load
 ```
 
 The gRPC service now implements `AskChatbot`, `GetConversation`, and

@@ -94,7 +94,7 @@ async def serve(config: ChatbotConfig | None = None) -> None:
     generated = load_generated_chatbot_grpc()
     service_name = generated.chatbot_pb2.DESCRIPTOR.services_by_name["ChatbotService"].full_name
 
-    metrics = MetricsRecorder()
+    metrics = MetricsRecorder(snapshot_path=config.metrics_snapshot_path or None)
     cache = build_cache(config)
     recommendation_client = GrpcRecommendationClient.from_config(config)
     conversation_repository = build_conversation_repository(config, metrics=metrics)

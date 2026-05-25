@@ -26,6 +26,7 @@ dev = [
 [project.scripts]
 chatbot-service = "chatbot_service.main:main"
 chatbot-migrate = "chatbot_service.storage.migrations:main"
+chatbot-validate = "chatbot_service.validation.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

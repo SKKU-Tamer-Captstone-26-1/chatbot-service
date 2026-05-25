@@ -39,6 +39,7 @@ class ChatbotConfig:
     async_conversation_persistence: bool
     persistence_queue_max_size: int
     persistence_retry_attempts: int
+    metrics_snapshot_path: str
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -90,4 +91,5 @@ def load_config() -> ChatbotConfig:
         async_conversation_persistence=_env_bool("CHATBOT_ASYNC_CONVERSATION_PERSISTENCE", True),
         persistence_queue_max_size=int(os.getenv("CHATBOT_PERSISTENCE_QUEUE_MAX_SIZE", "1000")),
         persistence_retry_attempts=int(os.getenv("CHATBOT_PERSISTENCE_RETRY_ATTEMPTS", "3")),
+        metrics_snapshot_path=os.getenv("CHATBOT_METRICS_SNAPSHOT_PATH", ""),
     )

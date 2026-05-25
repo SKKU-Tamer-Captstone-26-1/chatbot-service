@@ -226,6 +226,14 @@ Implementation status:
 Implementation status:
 
 - Unit-level 500-concurrent identical recommendation cache coverage exists.
+- `chatbot-validate load` runs cold and warm staging load passes against an
+  already-running chatbot gRPC endpoint.
+- `chatbot-validate` runs Redis preflight when Redis/Memorystore cache is
+  configured and validates recommendation card source IDs and rank order.
+- `CHATBOT_METRICS_SNAPSHOT_PATH` plus
+  `CHATBOT_VALIDATION_SERVICE_METRICS_PATH` lets validation output include
+  service-side cache, LLM, recommendation, and storage queue metrics without a
+  public metrics endpoint.
 - Full deployed load tests still require human-provided staging service URLs and
   credentials. See `docs/human-effort.md`.
 
