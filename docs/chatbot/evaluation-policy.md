@@ -6,7 +6,7 @@ This document defines how chatbot behavior is evaluated before implementation an
 
 ## MVP Evaluation Sets
 
-Create three sets:
+Create these sets:
 
 1. `golden_cases.yaml`
    - normal in-domain questions
@@ -24,11 +24,47 @@ Create three sets:
    - questions about non-app knowledge
    - requests to invent data
 
+4. `ranking_integrity_cases.yaml`
+   - LLM answer must preserve recommendation-service order
+   - LLM answer must not add place, drink, price, flavor, or scent candidates
+
+5. `korean_tone_cases.yaml`
+   - concise polite Korean
+   - modal-chatbot-friendly length
+   - no unnecessary technical internals shown to the user
+
+6. `load_and_cache_cases.yaml`
+   - repeated identical profile/filter asks reuse approved cached facts
+   - venue cache uses location buckets and freshness limits
+   - 500 concurrent users do not cause full conversation-history reads
+   - cache failures fall back to safe upstream calls or no-answer behavior
+
+## Model Evaluation Direction
+
+Open LLM leaderboards can help choose candidate base models, but production
+selection must be based on ONTHEBLOCK-specific evals. Broad coding, math,
+reasoning, and long-context scores are secondary because this chatbot only
+generates short grounded Korean responses from recommendation facts.
+
+Compare candidate Hugging Face checkpoints with:
+
+- grounding violation rate
+- ranking preservation
+- no-answer correctness
+- Korean tone quality
+- average output length
+- latency
+- endpoint cost
+
 ## Warm-Up / Overconfidence Mitigation
 
-We discussed a research-inspired warm-up idea for reducing overconfidence. For MVP, do not implement model pretraining or fine-tuning.
+The project may later use continued pretraining or fine-tuning on app-specific
+chatbot data. For MVP service implementation, do not train inside
+`ai-chatbot-service`; train externally, upload the model to Hugging Face, and
+connect through the configured endpoint.
 
-Instead document and implement practical equivalents:
+Until training consent and retention policy is finalized, implement practical
+equivalents:
 
 - negative examples
 - no-answer examples
@@ -37,7 +73,8 @@ Instead document and implement practical equivalents:
 - response verifier
 - refusal templates
 
-Future model training may use stored chatbot conversations only after privacy, consent, and data filtering policies are finalized.
+Future model training may use stored chatbot conversations only after privacy,
+consent, retention, deletion, and data filtering policies are finalized.
 
 ## Required Checks
 
@@ -49,3 +86,4 @@ Future model training may use stored chatbot conversations only after privacy, c
 | Unknown handling | Missing data returns insufficient-data response |
 | Cards | Recommendation answers include card-ready structured data |
 | Logging | Conversation and used_sources are stored when configured |
+| Scaling | Cache does not alter ranking and hot path avoids full history reads |

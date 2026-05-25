@@ -12,8 +12,10 @@ For AI chatbot work, also read:
 4. `chatbot/prompt-contract.md`
 5. `chatbot/response-schema.md`
 6. `chatbot/storage-and-learning.md`
-7. `chatbot/evaluation-policy.md`
-8. `chatbot/implementation-roadmap.md`
+7. `chatbot/scaling-and-cache-plan.md`
+8. `chatbot/evaluation-policy.md`
+9. `chatbot/model-strategy.md`
+10. `chatbot/implementation-roadmap.md`
 
 Folder addition:
 
@@ -26,6 +28,8 @@ docs/
   - prompt-contract.md
   - response-schema.md
   - storage-and-learning.md
+  - scaling-and-cache-plan.md
   - evaluation-policy.md
+  - model-strategy.md
   - implementation-roadmap.md
 ```

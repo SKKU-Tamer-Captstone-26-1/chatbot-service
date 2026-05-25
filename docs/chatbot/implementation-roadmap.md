@@ -21,6 +21,7 @@
 - Call `GetBeverageRecommendations`.
 - Call `GetVenueRecommendations`.
 - Convert results into chatbot cards.
+- Preserve recommendation request IDs, result IDs, ranks, reason codes, profile status, freshness, and availability.
 
 ## Phase 3: Guardrails and RAG Context
 
@@ -29,6 +30,19 @@
 - Implement no-evidence no-answer policy.
 - Implement out-of-scope refusal.
 - Implement prompt contract.
+- Use the Hugging Face/TGI-compatible adapter for the trained OpenLLM.
+- Keep prompt context compact because the model is a narrow response generator,
+  not a large reasoning model.
+
+## Phase 3.5: Model Strategy And Evaluation
+
+- Use open LLM leaderboards only to shortlist candidate base models.
+- Select the final base model using ONTHEBLOCK-specific evals.
+- Fine-tune or continued-pretrain externally for Korean grounded responses.
+- Upload the selected checkpoint to Hugging Face.
+- Configure `CHATBOT_LLM_PROVIDER=huggingface_tgi`.
+- Run golden/no-answer/out-of-scope/ranking/tone evals against the endpoint.
+- Gate release on no invented place, price, flavor, drink, scent, inventory, or distance facts.
 
 ## Phase 4: Conversation Storage
 
@@ -36,6 +50,28 @@
 - Store chatbot messages.
 - Store retrieval traces and used_sources.
 - Store feedback events.
+- Require PostgreSQL storage in production.
+- Keep training use blocked until consent, retention, and deletion policy is finalized.
+
+## Phase 4.25: Scaling, Cache, and Cost Control
+
+- Add request-path metrics before adding cache.
+- Keep recommendation-service as the primary cache owner for ranking results.
+- Add a thin chatbot cache for profile status, recommendation responses, and
+  compact prompt context only after source freshness rules are defined.
+- Use profile revision, filters, and location buckets in cache keys.
+- Do not cache raw survey answers or canonical map/place truth in chatbot-service.
+- Move conversation and retrieval-trace writes to bounded async persistence after
+  the synchronous storage path is verified.
+- Do not load full conversation history on every `AskChatbot` request.
+- Validate the path with 500-concurrent-user load tests.
+- Detailed plan: `docs/chatbot/scaling-and-cache-plan.md`.
+
+## Phase 4.5: Auth Adapter Finalization
+
+- Keep metadata-only caller resolution in chatbot-service.
+- Replace temporary metadata header names after auth/gateway contract is finalized by the auth team.
+- Continue to reject trusted user identity from chatbot request bodies.
 
 ## Phase 5: Flutter Integration
 
@@ -49,4 +85,6 @@
 - Add golden cases.
 - Add no-answer cases.
 - Add out-of-scope cases.
+- Add ranking integrity cases.
+- Add Korean tone cases.
 - Add regression tests for hallucination prevention.

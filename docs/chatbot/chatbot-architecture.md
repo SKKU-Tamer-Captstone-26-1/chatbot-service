@@ -29,6 +29,28 @@ Flutter modal chatbot
       -> Korean polite answer + cards
 ```
 
+## Production Scaling Direction
+
+The hot path must avoid unnecessary repeated reads when many users ask similar
+questions. `AskChatbot` should not load full conversation history by default.
+
+Recommended production shape:
+
+```text
+Flutter submit
+  -> ai-chatbot-service
+      -> thin cache lookup for profile/recommendation/context facts
+      -> recommendation-service on cache miss or stale facts
+      -> grounded prompt context
+      -> LLM response
+      -> bounded async chatbot log persistence
+```
+
+Recommendation-service remains the primary owner of recommendation-result cache
+because it owns ranking, profile revision, score freshness, and invalidation
+semantics. ai-chatbot-service may keep only a thin orchestration cache. Detailed
+plan: `docs/chatbot/scaling-and-cache-plan.md`.
+
 ## User Location Rule
 
 `auth-service` may provide coarse location, such as dong-level location. Detailed location for nearby venue recommendations should come from Map context or a request-provided lat/lng. If detailed location is unavailable, the chatbot should ask for location context or answer only with non-location recommendations.
