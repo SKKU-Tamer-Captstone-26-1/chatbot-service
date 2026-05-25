@@ -1,10 +1,4 @@
-"""ai-chatbot-service skeleton entrypoint.
-
-TODO:
-- implement gRPC server from proto/chatbot/v1/chatbot.proto
-- wire AuthClient, RecommendationClient, MapContextClient
-- wire Guardrails, ContextBuilder, LLMAdapter, ResponseBuilder
-"""
+"""ai-chatbot-service entrypoint."""
 from __future__ import annotations
 
 import argparse
@@ -27,7 +21,7 @@ def main(argv: list[str] | None = None) -> None:
 
     config = load_config()
     if args.check_config:
-        print(f"chatbot-service skeleton configured on {config.service_addr}")
+        print(f"chatbot-service configured on {config.service_addr}")
         return
 
     asyncio.run(serve(config))

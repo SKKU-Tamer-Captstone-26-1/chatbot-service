@@ -1,62 +1,115 @@
-"""ChatbotService gRPC servicer skeleton.
-
-Phase 1 only wires the gRPC surface. Business logic starts after generated proto
-modules and upstream service contracts are available.
-"""
+"""ChatbotService gRPC servicer implementation."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from chatbot_service.clients.auth_client import AuthMetadataError, AuthMetadataResolver
 from chatbot_service.config import ChatbotConfig
+from chatbot_service.pipeline.chatbot_pipeline import ChatbotPipeline
+from chatbot_service.proto_converters import (
+    answer_to_proto,
+    conversation_message_to_proto,
+    request_from_proto,
+    struct_to_dict,
+)
+from chatbot_service.storage.conversation_repository import ConversationRepository
 
 
-def build_chatbot_servicer(servicer_base: type[Any], config: ChatbotConfig) -> Any:
+def build_chatbot_servicer(
+    servicer_base: type[Any],
+    config: ChatbotConfig,
+    chatbot_pb2: Any,
+    pipeline: ChatbotPipeline,
+    conversation_repository: ConversationRepository | None,
+    auth_resolver: AuthMetadataResolver | None = None,
+) -> Any:
     """Create a generated ChatbotServiceServicer implementation.
 
     The generated base class is passed in at runtime so this module can be
     imported before protobuf code generation has run.
     """
 
+    auth_resolver = auth_resolver or AuthMetadataResolver(config)
+
     class ChatbotServicer(servicer_base):  # type: ignore[misc, valid-type]
         async def AskChatbot(self, request: Any, context: Any) -> Any:
             import grpc
 
-            # TODO(auth-service): resolve caller identity only from Authorization
-            # metadata or gateway-authenticated context. Do not trust request body
-            # user identifiers.
-            # TODO(recommendation-service): fetch profile status, ranked beverage
-            # and venue candidates, score breakdowns, and reason codes. The LLM
-            # must not rank or rerank results.
-            # TODO(map-service): use approved map/place APIs or read models for
-            # detailed location, venue, price, inventory, distance, and freshness
-            # facts. Do not read canonical map/place databases directly.
-            # TODO(LLM): generate only grounded polite Korean text from retrieved
-            # facts. If evidence is missing, return an insufficient-data answer.
-            await context.abort(
-                grpc.StatusCode.UNIMPLEMENTED,
-                "AskChatbot pipeline is not implemented in Phase 1.",
-            )
+            try:
+                caller = auth_resolver.resolve(context.invocation_metadata())
+                chatbot_request = request_from_proto(request, chatbot_pb2)
+                answer = await pipeline.ask(chatbot_request, caller)
+                return answer_to_proto(answer, chatbot_pb2)
+            except AuthMetadataError as exc:
+                await context.abort(grpc.StatusCode.UNAUTHENTICATED, str(exc))
+            except ValueError as exc:
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+            except grpc.RpcError as exc:
+                await context.abort(grpc.StatusCode.UNAVAILABLE, exc.details() or str(exc))
 
         async def GetConversation(self, request: Any, context: Any) -> Any:
             import grpc
 
-            # TODO(storage): add chatbot-owned conversation storage only after
-            # storage schema and retention policy are approved.
-            await context.abort(
-                grpc.StatusCode.UNIMPLEMENTED,
-                "GetConversation storage is not implemented in Phase 1.",
-            )
+            try:
+                caller = auth_resolver.resolve(context.invocation_metadata())
+                if conversation_repository is None:
+                    await context.abort(
+                        grpc.StatusCode.FAILED_PRECONDITION,
+                        "Conversation storage is disabled.",
+                    )
+                messages, next_page_token = await conversation_repository.get_messages(
+                    user_id=caller.user_id,
+                    conversation_id=request.conversation_id,
+                    page_size=request.page_size,
+                    page_token=request.page_token,
+                )
+                return chatbot_pb2.GetConversationResponse(
+                    conversation_id=request.conversation_id,
+                    messages=[
+                        conversation_message_to_proto(message, chatbot_pb2)
+                        for message in messages
+                    ],
+                    next_page_token=next_page_token,
+                )
+            except AuthMetadataError as exc:
+                await context.abort(grpc.StatusCode.UNAUTHENTICATED, str(exc))
+            except ValueError as exc:
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
 
         async def RecordChatbotFeedback(self, request: Any, context: Any) -> Any:
             import grpc
 
-            # TODO(storage/evaluation): store chatbot feedback events without
-            # using them for training until privacy and consent policy is finalized.
-            await context.abort(
-                grpc.StatusCode.UNIMPLEMENTED,
-                "RecordChatbotFeedback storage is not implemented in Phase 1.",
-            )
+            try:
+                caller = auth_resolver.resolve(context.invocation_metadata())
+                if conversation_repository is None:
+                    await context.abort(
+                        grpc.StatusCode.FAILED_PRECONDITION,
+                        "Conversation storage is disabled.",
+                    )
+                if not request.message_id:
+                    await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "message_id is required")
+                if not request.idempotency_key:
+                    await context.abort(
+                        grpc.StatusCode.INVALID_ARGUMENT,
+                        "idempotency_key is required",
+                    )
+                event_type = chatbot_pb2.ChatbotFeedbackEventType.Name(request.event_type)
+                _, duplicate = await conversation_repository.record_feedback(
+                    user_id=caller.user_id,
+                    message_id=request.message_id,
+                    event_type=event_type,
+                    idempotency_key=request.idempotency_key,
+                    metadata=struct_to_dict(request.metadata),
+                )
+                return chatbot_pb2.RecordChatbotFeedbackResponse(
+                    recorded=True,
+                    duplicate=duplicate,
+                )
+            except AuthMetadataError as exc:
+                await context.abort(grpc.StatusCode.UNAUTHENTICATED, str(exc))
+            except ValueError as exc:
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
 
     return ChatbotServicer()
 

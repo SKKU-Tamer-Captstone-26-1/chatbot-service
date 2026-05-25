@@ -9,8 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from chatbot_service.app import build_chatbot_pipeline, build_conversation_repository
+from chatbot_service.cache import build_cache
+from chatbot_service.clients.recommendation_client import GrpcRecommendationClient
 from chatbot_service.config import ChatbotConfig, load_config
 from chatbot_service.grpc_service import build_chatbot_servicer
+from chatbot_service.metrics import MetricsRecorder
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,8 +81,8 @@ def register_health_service(server: Any, service_name: str) -> None:
 async def serve(config: ChatbotConfig | None = None) -> None:
     """Start the async gRPC server.
 
-    This is Phase 1 wiring only. RPC handlers intentionally return UNIMPLEMENTED
-    until upstream integrations and generated contracts are added.
+    RPC handlers resolve auth metadata, call recommendation-service, generate a
+    grounded answer, and use chatbot-owned storage when configured.
     """
 
     try:
@@ -90,10 +94,25 @@ async def serve(config: ChatbotConfig | None = None) -> None:
     generated = load_generated_chatbot_grpc()
     service_name = generated.chatbot_pb2.DESCRIPTOR.services_by_name["ChatbotService"].full_name
 
+    metrics = MetricsRecorder()
+    cache = build_cache(config)
+    recommendation_client = GrpcRecommendationClient.from_config(config)
+    conversation_repository = build_conversation_repository(config, metrics=metrics)
+    pipeline = build_chatbot_pipeline(
+        config,
+        recommendation_client,
+        conversation_repository=conversation_repository,
+        cache=cache,
+        metrics=metrics,
+    )
+
     server = grpc.aio.server()
     servicer = build_chatbot_servicer(
         generated.chatbot_pb2_grpc.ChatbotServiceServicer,
         config,
+        generated.chatbot_pb2,
+        pipeline,
+        conversation_repository,
     )
     generated.chatbot_pb2_grpc.add_ChatbotServiceServicer_to_server(servicer, server)
     register_health_service(server, service_name)
@@ -108,6 +127,16 @@ async def serve(config: ChatbotConfig | None = None) -> None:
     except asyncio.CancelledError:
         await server.stop(grace=5)
         raise
+    finally:
+        await _close_if_available(conversation_repository)
+        await _close_if_available(recommendation_client)
+        await _close_if_available(cache)
+
+
+async def _close_if_available(value: Any) -> None:
+    close = getattr(value, "close", None)
+    if close is not None:
+        await close()
 
 
 __all__ = [

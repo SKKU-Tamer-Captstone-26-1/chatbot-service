@@ -1,5 +1,5 @@
 from chatbot_service.domain.intents import ChatbotIntent
-from chatbot_service.domain.schemas import ChatbotAnswer
+from chatbot_service.domain.schemas import ChatbotAnswer, ChatbotResponseStatus
 from chatbot_service.pipeline.context_builder import GroundedContext
 
 
@@ -13,6 +13,7 @@ class Guardrails:
                     "도와드릴 수 있어요."
                 ),
                 confidence=1.0,
+                status=ChatbotResponseStatus.REFUSED,
                 refused=True,
                 refusal_reason="OUT_OF_SCOPE",
             )
@@ -21,6 +22,7 @@ class Guardrails:
                 intent=ChatbotIntent.INSUFFICIENT_DATA,
                 answer="현재 ONTHEBLOCK 데이터에서 신뢰할 수 있는 추천 근거를 찾지 못했어요.",
                 confidence=1.0,
+                status=ChatbotResponseStatus.INSUFFICIENT_DATA,
                 refused=False,
                 refusal_reason="INSUFFICIENT_DATA",
                 missing_facts=context.missing_facts,

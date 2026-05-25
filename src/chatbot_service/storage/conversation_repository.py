@@ -11,6 +11,8 @@ class ConversationRepository(Protocol):
         self,
         user_id: str,
         conversation_id: str | None,
+        screen_context: str = "SCREEN_CONTEXT_UNSPECIFIED",
+        metadata: dict[str, Any] | None = None,
     ) -> str: ...
 
     async def append_message(
@@ -19,6 +21,24 @@ class ConversationRepository(Protocol):
         role: str,
         content: str,
         metadata: dict[str, Any],
+        message_id: str | None = None,
     ) -> str: ...
 
     async def store_retrieval_trace(self, message_id: str, trace: dict[str, Any]) -> None: ...
+
+    async def get_messages(
+        self,
+        user_id: str,
+        conversation_id: str,
+        page_size: int,
+        page_token: str,
+    ) -> tuple[list[dict[str, Any]], str]: ...
+
+    async def record_feedback(
+        self,
+        user_id: str,
+        message_id: str,
+        event_type: str,
+        idempotency_key: str,
+        metadata: dict[str, Any],
+    ) -> tuple[str, bool]: ...
