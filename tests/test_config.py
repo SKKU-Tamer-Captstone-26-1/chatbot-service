@@ -7,7 +7,16 @@ def test_load_config_defaults(monkeypatch):
         "CHATBOT_AUTH_MODE",
         "CHATBOT_LLM_PROVIDER",
         "CHATBOT_REQUIRE_GROUNDED_FACTS",
+        "CHATBOT_CACHE_BACKEND",
+        "CHATBOT_CACHE_PROFILE_STATUS_TTL_SEC",
+        "CHATBOT_CACHE_BEVERAGE_RECOMMENDATIONS_TTL_SEC",
+        "CHATBOT_CACHE_VENUE_RECOMMENDATIONS_TTL_SEC",
+        "CHATBOT_CACHE_PROMPT_CONTEXT_TTL_SEC",
+        "CHATBOT_CACHE_LOCATION_BUCKET_PRECISION",
         "CHATBOT_STORE_CONVERSATIONS",
+        "CHATBOT_ASYNC_CONVERSATION_PERSISTENCE",
+        "CHATBOT_PERSISTENCE_QUEUE_MAX_SIZE",
+        "CHATBOT_PERSISTENCE_RETRY_ATTEMPTS",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -15,17 +24,33 @@ def test_load_config_defaults(monkeypatch):
 
     assert config.service_addr == ":9100"
     assert config.auth_mode == "validate_token"
+    assert config.auth_user_id_metadata_key == "x-user-id"
+    assert config.auth_authorization_metadata_key == "authorization"
     assert config.llm_provider == "none"
+    assert config.llm_api_key_env == "HF_TOKEN"
+    assert config.llm_max_tokens == 512
     assert config.default_language == "ko"
     assert config.require_grounded_facts is True
+    assert config.cache_backend == "memory"
+    assert config.cache_profile_status_ttl_sec == 300
+    assert config.cache_beverage_recommendations_ttl_sec == 300
+    assert config.cache_venue_recommendations_ttl_sec == 120
+    assert config.cache_prompt_context_ttl_sec == 120
+    assert config.cache_location_bucket_precision == 3
     assert config.store_conversations is True
+    assert config.storage_retention_days == 365
+    assert config.async_conversation_persistence is True
+    assert config.persistence_queue_max_size == 1000
+    assert config.persistence_retry_attempts == 3
 
 
 def test_boolean_config_accepts_false(monkeypatch):
     monkeypatch.setenv("CHATBOT_REQUIRE_GROUNDED_FACTS", "false")
     monkeypatch.setenv("CHATBOT_STORE_CONVERSATIONS", "0")
+    monkeypatch.setenv("CHATBOT_ASYNC_CONVERSATION_PERSISTENCE", "off")
 
     config = load_config()
 
     assert config.require_grounded_facts is False
     assert config.store_conversations is False
+    assert config.async_conversation_persistence is False
