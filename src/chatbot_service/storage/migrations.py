@@ -157,3 +157,7 @@ __all__ = [
     "default_migrations_dir",
     "discover_migrations",
 ]
+
+
+if __name__ == "__main__":
+    main()
