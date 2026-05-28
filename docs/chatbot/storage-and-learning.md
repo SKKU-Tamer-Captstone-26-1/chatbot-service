@@ -26,6 +26,12 @@ The runner stores applied versions and checksums in
 `chatbot_schema_migrations`. Conversation reads and feedback writes must be
 scoped to the authenticated user resolved from trusted metadata.
 
+Assistant message metadata stores response cards, `used_sources`,
+`missing_facts`, profile status, and prompt context hash so conversation reads
+can show traceable chatbot outputs. `chatbot_retrieval_traces` stores the same
+source metadata as the audit-grade trace tied to recommendation-service request
+and result IDs.
+
 ## Hot Path Cost Rule
 
 `AskChatbot` must not load full conversation history from PostgreSQL by default.
@@ -61,6 +67,7 @@ chatbot_messages
 - confidence
 - refused
 - refusal_reason
+- metadata_json
 - created_at
 
 chatbot_retrieval_traces

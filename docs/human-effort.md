@@ -44,6 +44,13 @@ If staging uses Redis/Memorystore, keep
 `CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT=true` so validation fails before
 traffic if the cache endpoint is unavailable.
 
+Keep `CHATBOT_VALIDATION_REQUIRE_RUNTIME_PREFLIGHT=true` for staging. The
+preflight checks validation metadata, recommendation-service URL, Postgres DSN
+when storage is enabled, LLM provider/model/endpoint, Redis configuration, and
+the LLM API key only when `CHATBOT_LLM_AUTH_MODE=bearer_env`. Use
+`CHATBOT_LLM_AUTH_MODE=none` for a local/private fine-tuned LLM endpoint that
+does not require bearer auth.
+
 To include service-side metrics in validation output, run the chatbot service
 with:
 

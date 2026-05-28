@@ -28,12 +28,13 @@ Prevent expensive repeated reads when many users ask similar questions.
 
 ## Current Status
 
-Local implementation exists. Real staging endpoints and credentials are still
-needed.
+Implemented locally, including cache, async persistence, validation harness, and
+fail-fast staging preflight. Real staging endpoints and credentials are still
+needed to run the external smoke/load acceptance gates.
 
 ## Immediate Implementation Slice
 
-Implement staging fail-fast preflight:
+Staging fail-fast preflight is implemented:
 
 - Validate required staging env before `chatbot-validate smoke/load` sends
   traffic.

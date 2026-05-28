@@ -30,6 +30,17 @@ class ValidationConfig:
     cache_backend: str
     cache_redis_url: str
     require_redis_preflight: bool
+    require_runtime_preflight: bool
+    require_authorization: bool
+    recommendation_service_url: str
+    store_conversations: bool
+    db_dsn: str
+    llm_provider: str
+    llm_model: str
+    llm_endpoint_url: str
+    llm_auth_mode: str
+    llm_api_key_env: str
+    llm_api_key_available: bool
     service_metrics_path: str
 
     @property
@@ -44,6 +55,7 @@ def load_validation_config(env: dict[str, str] | None = None) -> ValidationConfi
     source = env or os.environ
     raw_target = source.get("CHATBOT_VALIDATION_TARGET", "localhost:9100")
     target, secure = _normalize_target(raw_target)
+    llm_api_key_env = source.get("CHATBOT_LLM_API_KEY_ENV", "HF_TOKEN")
     return ValidationConfig(
         target=target,
         secure=_env_bool(source, "CHATBOT_VALIDATION_SECURE", secure),
@@ -84,6 +96,25 @@ def load_validation_config(env: dict[str, str] | None = None) -> ValidationConfi
             "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT",
             source.get("CHATBOT_CACHE_BACKEND", "").strip().lower() == "redis",
         ),
+        require_runtime_preflight=_env_bool(
+            source,
+            "CHATBOT_VALIDATION_REQUIRE_RUNTIME_PREFLIGHT",
+            True,
+        ),
+        require_authorization=_env_bool(
+            source,
+            "CHATBOT_VALIDATION_REQUIRE_AUTHORIZATION",
+            True,
+        ),
+        recommendation_service_url=source.get("RECOMMENDATION_SERVICE_URL", ""),
+        store_conversations=_env_bool(source, "CHATBOT_STORE_CONVERSATIONS", True),
+        db_dsn=source.get("CHATBOT_DB_DSN", ""),
+        llm_provider=source.get("CHATBOT_LLM_PROVIDER", "none"),
+        llm_model=source.get("CHATBOT_LLM_MODEL", ""),
+        llm_endpoint_url=source.get("CHATBOT_LLM_ENDPOINT_URL", ""),
+        llm_auth_mode=source.get("CHATBOT_LLM_AUTH_MODE", "bearer_env"),
+        llm_api_key_env=llm_api_key_env,
+        llm_api_key_available=bool(source.get(llm_api_key_env, "").strip()),
         service_metrics_path=source.get("CHATBOT_VALIDATION_SERVICE_METRICS_PATH", ""),
     )
 

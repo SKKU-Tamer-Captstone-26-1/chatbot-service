@@ -29,8 +29,17 @@ def test_validation_config_parses_target_metadata_and_load_settings():
             "CHATBOT_VALIDATION_REQUESTS": "750",
             "CHATBOT_VALIDATION_P95_THRESHOLD_MS": "1200",
             "CHATBOT_VALIDATION_CACHE_WARMUP_MIN_IMPROVEMENT_RATIO": "0.10",
+            "RECOMMENDATION_SERVICE_URL": "recommendation:9090",
+            "CHATBOT_STORE_CONVERSATIONS": "true",
+            "CHATBOT_DB_DSN": "postgres://chatbot:pass@localhost:5432/chatbot",
             "CHATBOT_CACHE_BACKEND": "redis",
             "CHATBOT_CACHE_REDIS_URL": "redis://localhost:6379/0",
+            "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
+            "CHATBOT_LLM_ENDPOINT_URL": "https://llm.example.com/v1/chat/completions",
+            "CHATBOT_LLM_MODEL": "ontheblock-chatbot",
+            "CHATBOT_LLM_AUTH_MODE": "bearer_env",
+            "CHATBOT_LLM_API_KEY_ENV": "HF_TOKEN",
+            "HF_TOKEN": "secret",
             "CHATBOT_VALIDATION_SERVICE_METRICS_PATH": "/tmp/chatbot-metrics.json",
         }
     )
@@ -48,6 +57,17 @@ def test_validation_config_parses_target_metadata_and_load_settings():
     assert config.cache_backend == "redis"
     assert config.cache_redis_url == "redis://localhost:6379/0"
     assert config.require_redis_preflight is True
+    assert config.require_runtime_preflight is True
+    assert config.require_authorization is True
+    assert config.recommendation_service_url == "recommendation:9090"
+    assert config.store_conversations is True
+    assert config.db_dsn == "postgres://chatbot:pass@localhost:5432/chatbot"
+    assert config.llm_provider == "huggingface_tgi"
+    assert config.llm_endpoint_url == "https://llm.example.com/v1/chat/completions"
+    assert config.llm_model == "ontheblock-chatbot"
+    assert config.llm_auth_mode == "bearer_env"
+    assert config.llm_api_key_env == "HF_TOKEN"
+    assert config.llm_api_key_available is True
     assert config.service_metrics_path == "/tmp/chatbot-metrics.json"
 
 
@@ -252,13 +272,17 @@ async def test_preflight_skips_redis_when_not_required():
         {
             "CHATBOT_CACHE_BACKEND": "memory",
             "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
+            "CHATBOT_VALIDATION_REQUIRE_RUNTIME_PREFLIGHT": "false",
+            "CHATBOT_VALIDATION_REQUIRE_AUTHORIZATION": "false",
         }
     )
 
     result = await run_preflight_checks(config)
 
     assert result.passed is True
-    assert result.checks == {"redis": "skipped"}
+    assert result.checks["runtime_config"] == "skipped"
+    assert result.checks["validation_authorization"] == "skipped"
+    assert result.checks["redis"] == "skipped"
 
 
 @pytest.mark.anyio
@@ -267,6 +291,8 @@ async def test_preflight_fails_when_redis_required_without_url():
         {
             "CHATBOT_CACHE_BACKEND": "redis",
             "CHATBOT_CACHE_REDIS_URL": "",
+            "CHATBOT_VALIDATION_REQUIRE_RUNTIME_PREFLIGHT": "false",
+            "CHATBOT_VALIDATION_REQUIRE_AUTHORIZATION": "false",
         }
     )
 
@@ -274,6 +300,103 @@ async def test_preflight_fails_when_redis_required_without_url():
 
     assert result.passed is False
     assert result.checks["redis"] == "failed: CHATBOT_CACHE_REDIS_URL is required"
+
+
+@pytest.mark.anyio
+async def test_preflight_fails_fast_for_missing_runtime_settings():
+    config = load_validation_config(
+        {
+            "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer token",
+            "CHATBOT_CACHE_BACKEND": "memory",
+            "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
+        }
+    )
+
+    result = await run_preflight_checks(config)
+
+    assert result.passed is False
+    assert result.checks["recommendation_service_url"] == (
+        "failed: RECOMMENDATION_SERVICE_URL is required"
+    )
+    assert result.checks["postgres_dsn"] == "failed: CHATBOT_DB_DSN is required"
+    assert result.checks["llm_provider"] == "failed: CHATBOT_LLM_PROVIDER is required for staging"
+
+
+@pytest.mark.anyio
+async def test_preflight_allows_local_llm_without_api_key_when_auth_none():
+    config = load_validation_config(
+        {
+            "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer token",
+            "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
+            "RECOMMENDATION_SERVICE_URL": "recommendation:9090",
+            "CHATBOT_STORE_CONVERSATIONS": "false",
+            "CHATBOT_CACHE_BACKEND": "memory",
+            "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
+            "CHATBOT_LLM_ENDPOINT_URL": "http://localhost:8000/v1/chat/completions",
+            "CHATBOT_LLM_MODEL": "local-chatbot",
+            "CHATBOT_LLM_AUTH_MODE": "none",
+        }
+    )
+
+    result = await run_preflight_checks(config)
+
+    assert result.passed is True
+    assert result.checks["postgres_dsn"] == "skipped"
+    assert result.checks["llm_api_key"] == "skipped"
+
+
+@pytest.mark.anyio
+async def test_preflight_requires_api_key_when_llm_auth_mode_is_bearer_env():
+    config = load_validation_config(
+        {
+            "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer token",
+            "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
+            "RECOMMENDATION_SERVICE_URL": "recommendation:9090",
+            "CHATBOT_STORE_CONVERSATIONS": "false",
+            "CHATBOT_CACHE_BACKEND": "memory",
+            "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
+            "CHATBOT_LLM_ENDPOINT_URL": "https://llm.example.com/v1/chat/completions",
+            "CHATBOT_LLM_MODEL": "remote-chatbot",
+            "CHATBOT_LLM_AUTH_MODE": "bearer_env",
+            "CHATBOT_LLM_API_KEY_ENV": "HF_TOKEN",
+        }
+    )
+
+    result = await run_preflight_checks(config)
+
+    assert result.passed is False
+    assert result.checks["llm_api_key"] == "failed: HF_TOKEN is required"
+
+
+@pytest.mark.anyio
+async def test_preflight_rejects_placeholder_values():
+    config = load_validation_config(
+        {
+            "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer REPLACE_WITH_TEST_TOKEN",
+            "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
+            "RECOMMENDATION_SERVICE_URL": "REPLACE_WITH_RECOMMENDATION_SERVICE_URL",
+            "CHATBOT_STORE_CONVERSATIONS": "false",
+            "CHATBOT_CACHE_BACKEND": "memory",
+            "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
+            "CHATBOT_LLM_ENDPOINT_URL": "https://REPLACE_WITH_HF_ENDPOINT/v1/chat/completions",
+            "CHATBOT_LLM_MODEL": "REPLACE_ME",
+            "CHATBOT_LLM_AUTH_MODE": "none",
+        }
+    )
+
+    result = await run_preflight_checks(config)
+
+    assert result.passed is False
+    assert result.checks["validation_authorization"] == (
+        "failed: CHATBOT_VALIDATION_AUTHORIZATION still has a placeholder value"
+    )
+    assert result.checks["recommendation_service_url"] == (
+        "failed: RECOMMENDATION_SERVICE_URL still has a placeholder value"
+    )
+    assert result.checks["llm_endpoint_url"] == (
+        "failed: CHATBOT_LLM_ENDPOINT_URL still has a placeholder value"
+    )
+    assert result.checks["llm_model"] == "failed: CHATBOT_LLM_MODEL still has a placeholder value"
 
 
 def test_metrics_snapshot_file_can_be_read_by_validation(tmp_path):

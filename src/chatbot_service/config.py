@@ -18,6 +18,7 @@ class ChatbotConfig:
     llm_provider: str
     llm_model: str
     llm_endpoint_url: str
+    llm_auth_mode: str
     llm_api_key_env: str
     llm_timeout_ms: int
     llm_temperature: float
@@ -64,6 +65,7 @@ def load_config() -> ChatbotConfig:
         llm_provider=os.getenv("CHATBOT_LLM_PROVIDER", "none"),
         llm_model=os.getenv("CHATBOT_LLM_MODEL", ""),
         llm_endpoint_url=os.getenv("CHATBOT_LLM_ENDPOINT_URL", ""),
+        llm_auth_mode=os.getenv("CHATBOT_LLM_AUTH_MODE", "bearer_env"),
         llm_api_key_env=os.getenv("CHATBOT_LLM_API_KEY_ENV", "HF_TOKEN"),
         llm_timeout_ms=int(os.getenv("CHATBOT_LLM_TIMEOUT_MS", "8000")),
         llm_temperature=float(os.getenv("CHATBOT_LLM_TEMPERATURE", "0.2")),

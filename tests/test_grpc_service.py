@@ -71,6 +71,7 @@ def _config() -> ChatbotConfig:
         llm_provider="none",
         llm_model="",
         llm_endpoint_url="",
+        llm_auth_mode="bearer_env",
         llm_api_key_env="HF_TOKEN",
         llm_timeout_ms=8000,
         llm_temperature=0.2,

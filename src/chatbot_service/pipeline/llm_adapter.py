@@ -32,6 +32,7 @@ class LLMGenerationError(RuntimeError):
 class HuggingFaceTGIConfig:
     endpoint_url: str
     model: str
+    auth_mode: str
     api_key_env: str
     timeout_ms: int
     temperature: float
@@ -50,6 +51,7 @@ class HuggingFaceTGIAdapter:
             HuggingFaceTGIConfig(
                 endpoint_url=config.llm_endpoint_url,
                 model=config.llm_model,
+                auth_mode=config.llm_auth_mode,
                 api_key_env=config.llm_api_key_env,
                 timeout_ms=config.llm_timeout_ms,
                 temperature=config.llm_temperature,
@@ -86,9 +88,16 @@ class HuggingFaceTGIAdapter:
         }
         body = json.dumps(payload).encode("utf-8")
         headers = {"Content-Type": "application/json"}
-        api_key = os.getenv(self._config.api_key_env, "")
-        if api_key:
+        auth_mode = self._config.auth_mode.strip().lower().replace("-", "_")
+        if auth_mode == "bearer_env":
+            api_key = os.getenv(self._config.api_key_env, "")
+            if not api_key:
+                raise LLMGenerationError(
+                    f"{self._config.api_key_env} is required when CHATBOT_LLM_AUTH_MODE=bearer_env"
+                )
             headers["Authorization"] = f"Bearer {api_key}"
+        elif auth_mode not in {"", "none"}:
+            raise LLMGenerationError(f"Unsupported CHATBOT_LLM_AUTH_MODE: {self._config.auth_mode}")
 
         request = urllib.request.Request(
             self._config.endpoint_url,

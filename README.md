@@ -149,8 +149,13 @@ The gRPC service now implements `AskChatbot`, `GetConversation`, and
 - `CHATBOT_ASYNC_CONVERSATION_PERSISTENCE=true` moves chatbot log writes behind
   a bounded queue so `AskChatbot` does not wait on every Postgres write.
 - `CHATBOT_LLM_PROVIDER=huggingface_tgi` requires a deployed Hugging Face/TGI
-  compatible chat-completions endpoint and the API key named by
-  `CHATBOT_LLM_API_KEY_ENV`.
+  compatible chat-completions endpoint. Use `CHATBOT_LLM_AUTH_MODE=bearer_env`
+  with the API key named by `CHATBOT_LLM_API_KEY_ENV` for secured remote
+  endpoints, or `CHATBOT_LLM_AUTH_MODE=none` for local/private endpoints that do
+  not require bearer auth.
+- `chatbot-validate smoke/load` runs fail-fast staging preflight checks for
+  validation metadata, recommendation-service URL, storage DSN, LLM endpoint,
+  Redis, and conditional LLM API-key presence before sending traffic.
 
 Authenticated user identity is resolved from trusted gRPC metadata. Public
 chatbot requests must not include a trusted `user_id`.

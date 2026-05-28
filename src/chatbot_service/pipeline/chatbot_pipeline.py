@@ -169,6 +169,10 @@ class ChatbotPipeline:
                 "refused": answer.refused,
                 "refusal_reason": answer.refusal_reason,
                 "cards": [card.__dict__ for card in answer.cards],
+                "used_sources": answer.used_sources,
+                "missing_facts": answer.missing_facts,
+                "profile_status": answer.profile_status,
+                "prompt_context_hash": answer.prompt_context_hash,
             },
         )
         answer.message_id = assistant_message_id

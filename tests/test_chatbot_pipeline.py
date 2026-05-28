@@ -137,6 +137,15 @@ async def test_pipeline_uses_recommendation_candidates_for_cards():
     assert answer.used_sources["beverage_result_ids"] == ["bev_result_1", "bev_result_2"]
     assert len(llm.calls) == 1
     assert len(repository.messages) == 2
+    assistant_message = repository.messages[answer.message_id]
+    assert assistant_message["metadata"]["used_sources"]["beverage_result_ids"] == [
+        "bev_result_1",
+        "bev_result_2",
+    ]
+    assert repository.traces[answer.message_id]["used_sources"]["beverage_result_ids"] == [
+        "bev_result_1",
+        "bev_result_2",
+    ]
 
 
 @pytest.mark.anyio

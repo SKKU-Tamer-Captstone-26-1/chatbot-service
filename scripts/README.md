@@ -95,6 +95,8 @@ Useful load variables:
 CHATBOT_VALIDATION_CONCURRENCY
 CHATBOT_VALIDATION_REQUESTS
 CHATBOT_VALIDATION_P95_THRESHOLD_MS
+CHATBOT_VALIDATION_REQUIRE_RUNTIME_PREFLIGHT
+CHATBOT_VALIDATION_REQUIRE_AUTHORIZATION
 CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT
 CHATBOT_VALIDATION_SERVICE_METRICS_PATH
 CHATBOT_VALIDATION_SELECTED_BEVERAGE_ID
@@ -105,6 +107,13 @@ CHATBOT_VALIDATION_LNG
 When `CHATBOT_CACHE_BACKEND=redis`, validation runs a Redis preflight ping before
 smoke or load checks. Set `CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT=false` only
 when validating a local process intentionally using process-local cache.
+
+Runtime preflight is enabled by default. It fails before traffic when required
+staging settings are missing: recommendation-service URL, Postgres DSN when
+conversation storage is enabled, LLM provider/model/endpoint, validation
+metadata, and the LLM API key when `CHATBOT_LLM_AUTH_MODE=bearer_env`. Use
+`CHATBOT_LLM_AUTH_MODE=none` for local or private LLM endpoints that do not need
+bearer auth.
 
 To include service-side counters/timers in validation output, start the chatbot
 service with `CHATBOT_METRICS_SNAPSHOT_PATH` and point

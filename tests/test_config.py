@@ -6,6 +6,7 @@ def test_load_config_defaults(monkeypatch):
         "CHATBOT_SERVICE_ADDR",
         "CHATBOT_AUTH_MODE",
         "CHATBOT_LLM_PROVIDER",
+        "CHATBOT_LLM_AUTH_MODE",
         "CHATBOT_REQUIRE_GROUNDED_FACTS",
         "CHATBOT_CACHE_BACKEND",
         "CHATBOT_CACHE_PROFILE_STATUS_TTL_SEC",
@@ -28,6 +29,7 @@ def test_load_config_defaults(monkeypatch):
     assert config.auth_user_id_metadata_key == "x-user-id"
     assert config.auth_authorization_metadata_key == "authorization"
     assert config.llm_provider == "none"
+    assert config.llm_auth_mode == "bearer_env"
     assert config.llm_api_key_env == "HF_TOKEN"
     assert config.llm_max_tokens == 512
     assert config.default_language == "ko"
