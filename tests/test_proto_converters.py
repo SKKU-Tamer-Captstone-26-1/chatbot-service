@@ -92,6 +92,61 @@ def test_answer_to_proto_maps_grounded_answer_cards_and_sources():
     assert list(proto.used_sources.beverage_result_ids) == ["result_1"]
 
 
+def test_answer_to_proto_maps_purchase_option_cards_and_sources():
+    generated = load_generated_chatbot_grpc()
+    pb2 = generated.chatbot_pb2
+    answer = ChatbotAnswer(
+        conversation_id="conversation_1",
+        message_id="message_1",
+        intent=ChatbotIntent.COMPARE_PURCHASE_OPTIONS,
+        answer="추천 결과 기준으로는 테스트 바틀샵이 가격이 좋아요.",
+        confidence=0.88,
+        profile_status="PROFILE_STATUS_ACTIVE",
+        cards=[
+            ChatbotCard(
+                card_type="CHATBOT_CARD_TYPE_PURCHASE_OPTION",
+                title="테스트 바틀샵",
+                detail={
+                    "purchase_option": {
+                        "option_type": "VENUE_OPTION_TYPE_BEST_PRICE",
+                        "result_id": "venue_result_1",
+                        "beverage_id": "bev_1",
+                        "beverage_name": "테스트 위스키",
+                        "place_id": "place_1",
+                        "place_name": "테스트 바틀샵",
+                        "place_type": "bottle_shop",
+                        "address": "서울시 중구",
+                        "distance_m": 320.0,
+                        "price_krw": 42000,
+                        "availability_status": "VENUE_AVAILABILITY_STATUS_AVAILABLE",
+                        "freshness_status": "VENUE_FRESHNESS_STATUS_FRESH",
+                        "score": 0.88,
+                        "reason_codes": ["BEST_PRICE"],
+                        "explanation": "가장 저렴한 구매 선택지예요.",
+                    }
+                },
+            )
+        ],
+        used_sources={
+            "profile_status": "PROFILE_STATUS_ACTIVE",
+            "profile_revision": 7,
+            "venue_recommendation_request_id": "venue_req_1",
+            "venue_result_ids": ["venue_result_1"],
+            "place_ids": ["place_1"],
+            "reason_codes": ["BEST_PRICE"],
+        },
+    )
+
+    proto = answer_to_proto(answer, pb2)
+
+    assert proto.intent == pb2.CHATBOT_INTENT_COMPARE_PURCHASE_OPTIONS
+    assert proto.cards[0].purchase_option.result_id == "venue_result_1"
+    assert proto.cards[0].purchase_option.place_id == "place_1"
+    assert proto.cards[0].purchase_option.price_krw == 42000
+    assert proto.used_sources.venue_recommendation_request_id == "venue_req_1"
+    assert list(proto.used_sources.venue_result_ids) == ["venue_result_1"]
+
+
 def test_conversation_message_to_proto_reads_persisted_metadata():
     generated = load_generated_chatbot_grpc()
     pb2 = generated.chatbot_pb2

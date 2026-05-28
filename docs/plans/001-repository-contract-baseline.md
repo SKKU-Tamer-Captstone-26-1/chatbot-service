@@ -24,7 +24,7 @@ the service boundaries, agent harness, and public gRPC contract.
 
 ## Current Status
 
-Mostly complete.
+Implemented.
 
 ## Next Step
 

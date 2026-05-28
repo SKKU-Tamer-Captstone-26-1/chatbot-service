@@ -28,6 +28,10 @@ class ResponseBuilder:
         cards: list[ChatbotCard] = []
         for item in context.facts.get("beverage_recommendations", []):
             cards.append(_beverage_card(item))
+        if context.intent == ChatbotIntent.COMPARE_PURCHASE_OPTIONS.value:
+            for item in context.facts.get("venue_recommendations", []):
+                cards.append(_purchase_option_card(item))
+            return cards
         for item in context.facts.get("venue_recommendations", []):
             cards.append(_venue_card(item))
         if context.facts.get("profile_status") and not cards:
@@ -73,6 +77,49 @@ def _venue_card(item: dict[str, Any]) -> ChatbotCard:
         reason_codes=list(item.get("reason_codes", []) or []),
         metadata=dict(item.get("metadata", {}) or {}),
         detail={"venue_recommendation": item},
+    )
+
+
+def _purchase_option_card(item: dict[str, Any]) -> ChatbotCard:
+    place_name = str(item.get("name") or item.get("place_id") or "")
+    detail = {
+        "option_type": item.get("option_type", "VENUE_OPTION_TYPE_UNSPECIFIED"),
+        "result_id": item.get("result_id", ""),
+        "beverage_id": item.get("beverage_id", ""),
+        "beverage_name": item.get("beverage_name", ""),
+        "place_id": item.get("place_id", ""),
+        "place_name": place_name,
+        "place_type": item.get("place_type", ""),
+        "address": item.get("address", ""),
+        "distance_m": item.get("distance_m", 0.0),
+        "availability_status": item.get(
+            "availability_status",
+            "VENUE_AVAILABILITY_STATUS_UNSPECIFIED",
+        ),
+        "freshness_status": item.get(
+            "freshness_status",
+            "VENUE_FRESHNESS_STATUS_UNSPECIFIED",
+        ),
+        "score": item.get("score", 0.0),
+        "reason_codes": list(item.get("reason_codes", []) or []),
+        "explanation": item.get("explanation", ""),
+        "metadata": dict(item.get("metadata", {}) or {}),
+    }
+    if item.get("price_krw") is not None:
+        detail["price_krw"] = item["price_krw"]
+    if item.get("estimated_travel_time_sec") is not None:
+        detail["estimated_travel_time_sec"] = item["estimated_travel_time_sec"]
+    return ChatbotCard(
+        card_type="CHATBOT_CARD_TYPE_PURCHASE_OPTION",
+        title=place_name,
+        subtitle=str(item.get("place_type", "")),
+        display_reason=str(item.get("explanation", "")),
+        score=float(item.get("score", 0.0) or 0.0),
+        price_krw=item.get("price_krw"),
+        distance_m=_distance_to_int(item.get("distance_m")),
+        reason_codes=list(item.get("reason_codes", []) or []),
+        metadata=dict(item.get("metadata", {}) or {}),
+        detail={"purchase_option": detail},
     )
 
 

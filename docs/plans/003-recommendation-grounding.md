@@ -23,7 +23,7 @@ Use recommendation-service as the only source for ranked recommendation facts.
 
 ## Current Status
 
-Implemented for the current service shape.
+Implemented.
 
 ## Next Step
 
