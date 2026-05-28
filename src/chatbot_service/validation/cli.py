@@ -18,6 +18,7 @@ from chatbot_service.validation.summary import (
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Validate chatbot-service staging runtime")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("preflight", help="Run config and dependency preflight checks only")
     subparsers.add_parser("smoke", help="Run health, AskChatbot, conversation, and feedback checks")
     subparsers.add_parser("load", help="Run cold and warm AskChatbot load validation passes")
     args = parser.parse_args(argv)
@@ -27,6 +28,10 @@ def main(argv: list[str] | None = None) -> None:
     if not preflight.passed:
         print(json.dumps({"preflight": asdict(preflight)}, ensure_ascii=False, indent=2))
         raise SystemExit(1)
+
+    if args.command == "preflight":
+        print(json.dumps({"preflight": asdict(preflight)}, ensure_ascii=False, indent=2))
+        return
 
     if args.command == "smoke":
         result = asyncio.run(run_smoke_validation(config))

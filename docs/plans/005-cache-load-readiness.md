@@ -28,9 +28,9 @@ Prevent expensive repeated reads when many users ask similar questions.
 
 ## Current Status
 
-Implemented locally, including cache, async persistence, validation harness, and
-fail-fast staging preflight. Real staging endpoints and credentials are still
-needed to run the external smoke/load acceptance gates.
+Implemented locally, including cache, async persistence with queue-depth metrics,
+validation harness, and fail-fast staging preflight. Real staging endpoints and
+credentials are still needed to run the external smoke/load acceptance gates.
 
 ## Immediate Implementation Slice
 

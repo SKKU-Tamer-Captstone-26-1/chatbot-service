@@ -254,6 +254,9 @@ async def test_async_conversation_repository_defers_writes_but_preserves_ids():
     assert conversation_id in inner.conversations
     assert message_id in inner.messages
     assert message_id in inner.traces
+    queue_depth = metrics.snapshot()["timers"]["storage.queue_depth"]
+    assert queue_depth.count >= 3
+    assert queue_depth.max >= 1
     feedback_id, duplicate = await repository.record_feedback(
         user_id="user_123",
         message_id=message_id,

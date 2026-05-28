@@ -68,6 +68,12 @@ Run smoke validation:
 chatbot-validate smoke
 ```
 
+Run preflight only:
+
+```bash
+chatbot-validate preflight
+```
+
 Run cold/warm load validation:
 
 ```bash
@@ -78,6 +84,7 @@ Equivalent script form:
 
 ```bash
 python3 scripts/validate_staging.py smoke
+python3 scripts/validate_staging.py preflight
 python3 scripts/validate_staging.py load
 ```
 

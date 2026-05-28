@@ -160,8 +160,10 @@ class AsyncConversationRepository:
         try:
             self._queue.put_nowait(operation)
             self._metrics.increment("storage.queue_enqueued", operation=operation.name)
+            self._metrics.observe("storage.queue_depth", float(self._queue.qsize()))
         except asyncio.QueueFull:
             self._metrics.increment("storage.queue_full", operation=operation.name)
+            self._metrics.observe("storage.queue_depth", float(self._queue.qsize()))
             self.dead_letters.append((operation.name, "queue_full"))
             LOGGER.error("chatbot persistence queue is full; operation=%s", operation.name)
 
@@ -178,6 +180,7 @@ class AsyncConversationRepository:
                 await self._run_with_retry(operation)
             finally:
                 self._queue.task_done()
+                self._metrics.observe("storage.queue_depth", float(self._queue.qsize()))
 
     async def _run_with_retry(self, operation: _PersistenceOperation) -> None:
         for attempt in range(1, self._retry_attempts + 1):

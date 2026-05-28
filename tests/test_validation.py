@@ -2,6 +2,7 @@ import pytest
 
 from chatbot_service.metrics import MetricsRecorder
 from chatbot_service.server import load_generated_chatbot_grpc
+from chatbot_service.validation.cli import main as validation_main
 from chatbot_service.validation.client import (
     _assert_grounded_response,
     _beverage_request,
@@ -81,6 +82,22 @@ def test_validation_config_allows_insecure_override_for_tls_terminated_proxy():
 
     assert config.target == "chatbot.example.com"
     assert config.secure is False
+
+
+def test_validation_cli_preflight_prints_result_and_exits_success(monkeypatch, capsys):
+    monkeypatch.setenv("CHATBOT_VALIDATION_AUTHORIZATION", "Bearer token")
+    monkeypatch.setenv("CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT", "false")
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_URL", "recommendation:9090")
+    monkeypatch.setenv("CHATBOT_STORE_CONVERSATIONS", "false")
+    monkeypatch.setenv("CHATBOT_CACHE_BACKEND", "memory")
+    monkeypatch.setenv("CHATBOT_LLM_PROVIDER", "huggingface_tgi")
+    monkeypatch.setenv("CHATBOT_LLM_ENDPOINT_URL", "http://localhost:8000/v1/chat/completions")
+    monkeypatch.setenv("CHATBOT_LLM_MODEL", "local-chatbot")
+    monkeypatch.setenv("CHATBOT_LLM_AUTH_MODE", "none")
+
+    validation_main(["preflight"])
+
+    assert '"passed": true' in capsys.readouterr().out
 
 
 def test_latency_summary_and_threshold_evaluation():
