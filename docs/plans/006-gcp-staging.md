@@ -38,6 +38,7 @@ validate behavior and load.
 - Operator-local validation env template at
   `deploy/gcp/staging.validation.env.example`.
 - Terraform staging scaffold at `infra/gcp/staging`.
+- Optional Terraform IAM for a Cloud Build deployer service account.
 - Local staging artifact preflight command: `chatbot-gcp-staging-check`.
 - Local Secret Manager version loader: `chatbot-gcp-staging-secrets`.
 - GCP staging runbook at `docs/deployment/gcp-staging.md`.

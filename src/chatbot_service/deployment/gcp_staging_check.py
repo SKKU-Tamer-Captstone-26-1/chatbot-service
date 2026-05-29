@@ -121,6 +121,12 @@ REQUIRED_TERRAFORM_MAIN_TOKENS = (
     "roles/secretmanager.secretAccessor",
     "roles/cloudsql.client",
     "roles/vpcaccess.user",
+    "cloud_build_deployer_service_account_email",
+    "roles/run.admin",
+    "roles/artifactregistry.writer",
+    "roles/iam.serviceAccountUser",
+    "google_artifact_registry_repository_iam_member",
+    "google_service_account_iam_member",
 )
 
 FORBIDDEN_TERRAFORM_SECRET_TOKENS = (

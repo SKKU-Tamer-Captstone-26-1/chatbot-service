@@ -133,6 +133,7 @@ def test_gcp_staging_runbook_records_required_acceptance_gates():
 
 def test_terraform_scaffold_defines_base_staging_resources_without_secret_values():
     main_tf = (ROOT / "infra/gcp/staging/main.tf").read_text(encoding="utf-8")
+    variables_tf = (ROOT / "infra/gcp/staging/variables.tf").read_text(encoding="utf-8")
     outputs_tf = (ROOT / "infra/gcp/staging/outputs.tf").read_text(encoding="utf-8")
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
@@ -142,8 +143,15 @@ def test_terraform_scaffold_defines_base_staging_resources_without_secret_values
     assert "google_redis_instance" in main_tf
     assert "connect_mode       = \"PRIVATE_SERVICE_ACCESS\"" in main_tf
     assert "google_secret_manager_secret" in main_tf
+    assert "roles/run.admin" in main_tf
+    assert "roles/artifactregistry.writer" in main_tf
+    assert "roles/iam.serviceAccountUser" in main_tf
+    assert "google_artifact_registry_repository_iam_member" in main_tf
+    assert "google_service_account_iam_member" in main_tf
+    assert "cloud_build_deployer_service_account_email" in variables_tf
     assert "secret_data" not in main_tf
     assert "password =" not in main_tf
     assert "cloud_sql_connection_name" in outputs_tf
+    assert "cloud_build_deployer_service_account" in outputs_tf
     assert "redis_host" in outputs_tf
     assert "infra/**/*.tfvars" in gitignore

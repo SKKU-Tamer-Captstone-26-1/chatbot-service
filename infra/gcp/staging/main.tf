@@ -17,6 +17,12 @@ locals {
     "chatbot-staging-hf-token",
     "chatbot-staging-validation-authorization",
   ])
+
+  cloud_build_deployer_member = (
+    var.cloud_build_deployer_service_account_email == ""
+    ? ""
+    : "serviceAccount:${var.cloud_build_deployer_service_account_email}"
+  )
 }
 
 resource "google_project_service" "required" {
@@ -167,4 +173,30 @@ resource "google_project_iam_member" "chatbot_vpcaccess_user" {
   project = var.project_id
   role    = "roles/vpcaccess.user"
   member  = "serviceAccount:${google_service_account.chatbot_runtime.email}"
+}
+
+resource "google_project_iam_member" "cloud_build_run_admin" {
+  count = local.cloud_build_deployer_member == "" ? 0 : 1
+
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = local.cloud_build_deployer_member
+}
+
+resource "google_artifact_registry_repository_iam_member" "cloud_build_artifact_writer" {
+  count = local.cloud_build_deployer_member == "" ? 0 : 1
+
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.chatbot.repository_id
+  role       = "roles/artifactregistry.writer"
+  member     = local.cloud_build_deployer_member
+}
+
+resource "google_service_account_iam_member" "cloud_build_service_account_user" {
+  count = local.cloud_build_deployer_member == "" ? 0 : 1
+
+  service_account_id = google_service_account.chatbot_runtime.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = local.cloud_build_deployer_member
 }

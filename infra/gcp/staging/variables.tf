@@ -27,6 +27,12 @@ variable "service_account_id" {
   default     = "ai-chatbot-staging"
 }
 
+variable "cloud_build_deployer_service_account_email" {
+  description = "Optional Cloud Build deployer service account email that should be allowed to push images and deploy the staging service."
+  type        = string
+  default     = ""
+}
+
 variable "network_name" {
   description = "Dedicated VPC network name for chatbot staging."
   type        = string

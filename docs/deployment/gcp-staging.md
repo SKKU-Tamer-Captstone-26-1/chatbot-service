@@ -80,6 +80,11 @@ Terraform scaffold creates Secret Manager secret containers but does not create
 secret versions, so operator-supplied DB passwords, Redis URLs, LLM tokens, and
 validation tokens do not enter Terraform state.
 
+Set `cloud_build_deployer_service_account_email` in `terraform.tfvars` when
+Cloud Build runs under a dedicated deployer identity. The scaffold grants that
+identity the staging roles needed to push images, deploy Cloud Run, and attach
+the chatbot runtime service account.
+
 ## Secrets
 
 Create these Secret Manager entries in staging:

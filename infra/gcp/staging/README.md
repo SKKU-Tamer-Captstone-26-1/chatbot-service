@@ -14,6 +14,8 @@ It creates:
 - private Memorystore Redis instance
 - Secret Manager secret containers without secret versions
 - runtime IAM for Cloud SQL, VPC Access, and secret access
+- optional Cloud Build deployer IAM for Cloud Run deployment, Artifact Registry
+  image push, and runtime service-account attachment
 
 It does not create secret values. Add Secret Manager versions manually or through
 an approved secret-loading process after `terraform apply`.
@@ -25,6 +27,10 @@ Create an operator-local `terraform.tfvars` file. It is ignored by git.
 ```hcl
 project_id = "REPLACE_WITH_GCP_PROJECT_ID"
 region     = "asia-northeast3"
+
+# Recommended for projects where Cloud Build runs as a dedicated deployer
+# service account. This avoids relying on project-specific default behavior.
+cloud_build_deployer_service_account_email = "REPLACE_WITH_CLOUD_BUILD_DEPLOYER_SA"
 ```
 
 Then run:

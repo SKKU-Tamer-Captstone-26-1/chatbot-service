@@ -8,6 +8,11 @@ output "cloud_run_service_account" {
   value       = google_service_account.chatbot_runtime.email
 }
 
+output "cloud_build_deployer_service_account" {
+  description = "Cloud Build deployer service account email when configured."
+  value       = var.cloud_build_deployer_service_account_email
+}
+
 output "cloud_sql_connection_name" {
   description = "Cloud SQL connection name for Cloud Run attachment."
   value       = google_sql_database_instance.chatbot.connection_name
