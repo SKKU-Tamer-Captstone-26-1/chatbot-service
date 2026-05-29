@@ -35,7 +35,7 @@ output "redis_port" {
 
 output "secret_names" {
   description = "Secret Manager secret names that require operator-supplied versions."
-  value       = sorted(keys(google_secret_manager_secret.chatbot))
+  value       = sort(keys(google_secret_manager_secret.chatbot))
 }
 
 output "vpc_connector_name" {
