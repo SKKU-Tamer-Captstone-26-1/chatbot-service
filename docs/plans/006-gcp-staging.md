@@ -33,6 +33,7 @@ validate behavior and load.
 - Cloud Build staging pipeline at `deploy/gcp/cloudbuild.staging.yaml`.
 - Operator-local validation env template at
   `deploy/gcp/staging.validation.env.example`.
+- Local staging artifact preflight command: `chatbot-gcp-staging-check`.
 - GCP staging runbook at `docs/deployment/gcp-staging.md`.
 - Staging environment variables are configured through Secret Manager or secure
   deployment config, not committed files.
@@ -51,9 +52,9 @@ validate behavior and load.
 ## Current Status
 
 In progress. Container, non-secret env template, Cloud Build staging pipeline,
-validation env example, and runbook are in the repo. Actual GCP resources,
-staging URLs, and test credentials still require human provisioning before
-acceptance validation can run.
+validation env example, staging artifact preflight, and runbook are in the repo.
+Actual GCP resources, staging URLs, and test credentials still require human
+provisioning before acceptance validation can run.
 
 ## Next Step
 

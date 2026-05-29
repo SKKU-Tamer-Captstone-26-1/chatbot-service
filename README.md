@@ -179,3 +179,9 @@ The service listens on Cloud Run `PORT` when `CHATBOT_SERVICE_ADDR` is not set.
 Secrets such as `CHATBOT_DB_DSN`, `CHATBOT_CACHE_REDIS_URL`, provider tokens,
 and staging validation tokens must be injected from Secret Manager or an
 operator-local environment, never committed.
+
+Check staging deployment artifacts before Cloud Build submission:
+
+```bash
+chatbot-gcp-staging-check
+```

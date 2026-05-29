@@ -27,6 +27,7 @@ dev = [
 chatbot-service = "chatbot_service.main:main"
 chatbot-migrate = "chatbot_service.storage.migrations:main"
 chatbot-validate = "chatbot_service.validation.cli:main"
+chatbot-gcp-staging-check = "chatbot_service.deployment.gcp_staging_check:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

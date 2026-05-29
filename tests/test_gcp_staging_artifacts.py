@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from chatbot_service.deployment.gcp_staging_check import check_gcp_staging_artifacts
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -39,6 +41,21 @@ def test_cloudbuild_pipeline_runs_migrations_before_service_deploy():
     assert "--set-secrets=" in pipeline
     assert "--use-http2" in pipeline
     assert ":latest" not in pipeline
+
+
+def test_gcp_staging_artifact_preflight_passes():
+    result = check_gcp_staging_artifacts(ROOT)
+
+    assert result.passed is True
+    assert result.checks["cloudbuild_migration_before_service"] == "ok"
+    assert result.checks["staging_env_no_secret_values"] == "ok"
+
+
+def test_gcp_staging_artifact_preflight_fails_when_required_file_missing(tmp_path):
+    result = check_gcp_staging_artifacts(tmp_path)
+
+    assert result.passed is False
+    assert result.checks["file:Dockerfile"] == "failed: missing"
 
 
 def test_validation_env_example_has_required_staging_knobs_as_placeholders():

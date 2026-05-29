@@ -38,6 +38,12 @@ Use `deploy/gcp/cloudbuild.staging.yaml` for the repeatable staging path. It
 builds the image, pushes it, deploys and runs the migration job, then deploys
 the Cloud Run service.
 
+Before submitting, check the tracked deployment artifacts:
+
+```bash
+chatbot-gcp-staging-check
+```
+
 ```bash
 gcloud builds submit \
   --config deploy/gcp/cloudbuild.staging.yaml \

@@ -125,3 +125,22 @@ bearer auth.
 To include service-side counters/timers in validation output, start the chatbot
 service with `CHATBOT_METRICS_SNAPSHOT_PATH` and point
 `CHATBOT_VALIDATION_SERVICE_METRICS_PATH` at the same JSON file.
+
+## GCP Staging Artifact Check
+
+Check the local staging deployment templates before submitting a Cloud Build:
+
+```bash
+chatbot-gcp-staging-check
+```
+
+Equivalent script form:
+
+```bash
+python3 scripts/check_gcp_staging.py
+```
+
+The check verifies that required GCP staging files exist, migrations run before
+service deployment, secret values are excluded from the non-secret env template,
+secret versions are pinned instead of `latest`, and validation env files are
+ignored when filled locally.
