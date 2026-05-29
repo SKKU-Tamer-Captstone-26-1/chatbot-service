@@ -41,6 +41,7 @@ validate behavior and load.
 - Optional Terraform IAM for a Cloud Build deployer service account.
 - Local staging artifact preflight command: `chatbot-gcp-staging-check`.
 - Local Cloud Build deploy helper: `chatbot-gcp-staging-deploy`.
+- Local live GCP readiness checker: `chatbot-gcp-staging-readiness`.
 - Local Secret Manager version loader: `chatbot-gcp-staging-secrets`.
 - Local staging validation env-file runner: `chatbot-gcp-staging-validate`.
 - Local staging acceptance evidence checker: `chatbot-gcp-staging-acceptance`.
@@ -64,9 +65,15 @@ validate behavior and load.
 In progress. Container, non-secret env template, Cloud Build staging pipeline,
 Cloud Build substitutions example, Secret Manager values example, validation env
 example, Terraform staging scaffold, staging artifact preflight, secret version
-loader, Cloud Build deploy helper, validation env-file runner, and runbook are
-in the repo. Actual GCP resources, staging URLs, and test credentials still
-require human provisioning before acceptance validation can run.
+loader, Cloud Build deploy helper, live GCP readiness checker, validation
+env-file runner, and runbook are in the repo.
+
+Base staging resources have been applied in GCP project `on-the-block-2026`:
+Artifact Registry, runtime service account, private VPC path, Cloud SQL,
+Redis, and Secret Manager containers exist. Cloud Run chatbot deployment,
+Secret Manager versions, LLM endpoint/model values, DB app credentials, staging
+URLs, and test credentials still require human provisioning before acceptance
+validation can run.
 
 ## Next Step
 

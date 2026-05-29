@@ -46,16 +46,21 @@ chatbot-gcp-staging-check
 
 Copy `deploy/gcp/staging.substitutions.env.example` to the ignored
 `deploy/gcp/staging.substitutions.env` file, then fill it from Terraform outputs
-and pinned Secret Manager version numbers:
+and pinned Secret Manager version numbers. This file also carries non-secret
+runtime values that must not remain as placeholders, such as
+`RECOMMENDATION_SERVICE_URL`, `CHATBOT_LLM_ENDPOINT_URL`, and
+`CHATBOT_LLM_MODEL`:
 
 ```bash
+chatbot-gcp-staging-readiness --phase predeploy
 chatbot-gcp-staging-deploy --dry-run
 chatbot-gcp-staging-deploy
 ```
 
-Override every `REPLACE_WITH_*` value before submitting. The pipeline uses
-pinned secret versions and runs `chatbot-migrate` before deploying the serving
-revision.
+Override every `REPLACE_WITH_*` value before submitting. The deploy helper
+rejects placeholders and `latest` secret versions. The pipeline uses pinned
+secret versions, injects non-secret runtime values from substitutions, and runs
+`chatbot-migrate` before deploying the serving revision.
 
 ## Base Infrastructure
 
@@ -109,22 +114,32 @@ Then load pinned Secret Manager versions:
 ```bash
 chatbot-gcp-staging-secrets --dry-run
 chatbot-gcp-staging-secrets
+gcloud secrets versions list chatbot-staging-db-dsn --project "$PROJECT_ID"
+gcloud secrets versions list chatbot-staging-redis-url --project "$PROJECT_ID"
+gcloud secrets versions list chatbot-staging-hf-token --project "$PROJECT_ID"
 ```
 
 The loader uses `gcloud secrets versions add --data-file=-` and sends each
 secret through stdin, so values do not appear in command-line arguments.
+Copy the enabled numeric versions into `deploy/gcp/staging.substitutions.env`.
+Do not use `latest`.
 
 ## Deploy Cloud Run
 
-Deploy the staged service with non-secret env vars from
-`deploy/gcp/staging.env.yaml` and secret env vars from Secret Manager:
+Prefer `chatbot-gcp-staging-deploy`, which submits
+`deploy/gcp/cloudbuild.staging.yaml`. The Cloud Build pipeline injects
+non-secret runtime values from `deploy/gcp/staging.substitutions.env` and secret
+env vars from Secret Manager.
+
+For a manual deploy, use the same pinned values and avoid checked-in
+placeholders:
 
 ```bash
 gcloud run deploy ai-chatbot-service-staging \
   --image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/ai-chatbot-service:$GIT_SHA" \
   --region "$REGION" \
   --service-account "$CHATBOT_STAGING_SERVICE_ACCOUNT" \
-  --env-vars-file deploy/gcp/staging.env.yaml \
+  --set-env-vars "AUTH_SERVICE_URL=$AUTH_SERVICE_URL,RECOMMENDATION_SERVICE_URL=$RECOMMENDATION_SERVICE_URL,CHATBOT_LLM_PROVIDER=huggingface_tgi,CHATBOT_LLM_MODEL=$CHATBOT_LLM_MODEL,CHATBOT_LLM_ENDPOINT_URL=$CHATBOT_LLM_ENDPOINT_URL,CHATBOT_LLM_AUTH_MODE=bearer_env,CHATBOT_LLM_API_KEY_ENV=HF_TOKEN,CHATBOT_CACHE_BACKEND=redis,CHATBOT_STORE_CONVERSATIONS=true" \
   --set-secrets "CHATBOT_DB_DSN=chatbot-staging-db-dsn:$DB_DSN_SECRET_VERSION,CHATBOT_CACHE_REDIS_URL=chatbot-staging-redis-url:$REDIS_URL_SECRET_VERSION,HF_TOKEN=chatbot-staging-hf-token:$HF_TOKEN_SECRET_VERSION" \
   --set-cloudsql-instances "$CLOUD_SQL_CONNECTION_NAME" \
   --vpc-connector "$SERVERLESS_VPC_CONNECTOR" \
@@ -179,6 +194,7 @@ chatbot-gcp-staging-validate smoke \
   --output-file deploy/gcp/validation-output/smoke.json
 chatbot-gcp-staging-validate load \
   --output-file deploy/gcp/validation-output/load.json
+chatbot-gcp-staging-readiness --phase postdeploy
 chatbot-gcp-staging-acceptance
 ```
 
@@ -194,6 +210,7 @@ operator-local env file or tokens.
 - `chatbot-validate smoke` proves health, `AskChatbot`, `GetConversation`, and
   `RecordChatbotFeedback`.
 - `chatbot-validate load` passes the configured 500-user/load threshold.
+- `chatbot-gcp-staging-readiness --phase postdeploy` passes live GCP checks.
 - `chatbot-gcp-staging-acceptance` passes against saved validation output.
 - No secrets or service-account keys are added to git.
 

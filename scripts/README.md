@@ -175,6 +175,27 @@ python3 scripts/deploy_gcp_staging.py --dry-run
 The deploy helper rejects placeholders and `latest` secret versions before
 calling `gcloud builds submit`.
 
+## GCP Staging Readiness
+
+Check live GCP staging resources and pinned Secret Manager versions from the
+ignored substitutions file before submitting Cloud Build:
+
+```bash
+chatbot-gcp-staging-readiness --phase predeploy
+```
+
+After Cloud Run deploys, require the service to be Ready too:
+
+```bash
+chatbot-gcp-staging-readiness --phase postdeploy
+```
+
+Equivalent script form:
+
+```bash
+python3 scripts/check_gcp_staging_readiness.py --phase predeploy
+```
+
 ## GCP Staging Secrets
 
 Load operator-local staging secret values into Secret Manager after Terraform

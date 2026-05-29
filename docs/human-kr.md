@@ -148,14 +148,29 @@ CHATBOT_VALIDATION_AUTHORIZATION=Bearer <STAGING_VALIDATION_TOKEN>
    CHATBOT_STAGING_SERVICE_ACCOUNT=ai-chatbot-staging@on-the-block-2026.iam.gserviceaccount.com
    CLOUD_SQL_CONNECTION_NAME=on-the-block-2026:asia-northeast3:chatbot-staging-postgres
    SERVERLESS_VPC_CONNECTOR=chatbot-staging
+   AUTH_SERVICE_URL=<AUTH_SERVICE_URL>
+   RECOMMENDATION_SERVICE_URL=<RECOMMENDATION_GRPC_TARGET>
+   CHATBOT_LLM_ENDPOINT_URL=<LLM_ENDPOINT>
+   CHATBOT_LLM_MODEL=<MODEL_NAME>
    DB_DSN_SECRET_VERSION=<PINNED_VERSION>
    REDIS_URL_SECRET_VERSION=<PINNED_VERSION>
    HF_TOKEN_SECRET_VERSION=<PINNED_VERSION>
    ```
 
-6. `deploy/gcp/staging.env.yaml`의 non-secret placeholder를 실제 값으로 바꾼다.
+6. live readiness를 확인한다.
 
-   특히 아래 값은 배포 전에 반드시 바뀌어야 한다.
+   ```bash
+   chatbot-gcp-staging-readiness --phase predeploy
+   ```
+
+   이 명령은 GCP 리소스 상태, secret version, placeholder 제거 여부를 확인한다.
+   Cloud Run 서비스는 아직 배포 전이므로 predeploy 단계에서는 건너뛴다.
+
+7. `deploy/gcp/staging.env.yaml`은 참고용 template로만 둔다.
+
+   실제 Cloud Build 배포에서는 non-secret runtime 값이
+   `deploy/gcp/staging.substitutions.env`에서 들어간다. 특히 아래 값은 배포 전에
+   substitutions 파일에서 반드시 바뀌어야 한다.
 
    ```text
    RECOMMENDATION_SERVICE_URL
@@ -163,19 +178,19 @@ CHATBOT_VALIDATION_AUTHORIZATION=Bearer <STAGING_VALIDATION_TOKEN>
    CHATBOT_LLM_MODEL
    ```
 
-7. 배포 artifact를 확인한다.
+8. 배포 artifact를 확인한다.
 
    ```bash
    chatbot-gcp-staging-check
    ```
 
-8. Cloud Build deploy dry-run을 먼저 실행한다.
+9. Cloud Build deploy dry-run을 먼저 실행한다.
 
    ```bash
    chatbot-gcp-staging-deploy --dry-run
    ```
 
-9. 문제가 없으면 실제 deploy를 실행한다.
+10. 문제가 없으면 실제 deploy를 실행한다.
 
    ```bash
    chatbot-gcp-staging-deploy
@@ -213,6 +228,7 @@ chatbot-gcp-staging-validate smoke \
   --output-file deploy/gcp/validation-output/smoke.json
 chatbot-gcp-staging-validate load \
   --output-file deploy/gcp/validation-output/load.json
+chatbot-gcp-staging-readiness --phase postdeploy
 chatbot-gcp-staging-acceptance
 ```
 

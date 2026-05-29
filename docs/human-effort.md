@@ -16,8 +16,9 @@ need human decisions or external infrastructure access.
 - Confirm the venue location bucket precision. Current default is 3 decimal
   places, which is roughly neighborhood-block scale and must be checked against
   distance/price accuracy expectations.
-- Provide staging `RECOMMENDATION_SERVICE_URL`, auth metadata contract, and test
-  tokens for deployed integration/load testing.
+- Provide staging `RECOMMENDATION_SERVICE_URL`, auth metadata contract, LLM
+  endpoint/model, pinned Secret Manager versions, and test tokens for deployed
+  integration/load testing.
 - Provide staging PostgreSQL DSN and Redis/Memorystore endpoint for 500-user
   load testing.
 - Decide whether async conversation persistence is acceptable for production
@@ -43,6 +44,18 @@ CHATBOT_VALIDATION_CONCURRENCY=500 CHATBOT_VALIDATION_REQUESTS=500 chatbot-valid
 If staging uses Redis/Memorystore, keep
 `CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT=true` so validation fails before
 traffic if the cache endpoint is unavailable.
+
+Before submitting Cloud Build, run:
+
+```bash
+chatbot-gcp-staging-readiness --phase predeploy
+```
+
+After Cloud Run deploys, run:
+
+```bash
+chatbot-gcp-staging-readiness --phase postdeploy
+```
 
 Keep `CHATBOT_VALIDATION_REQUIRE_RUNTIME_PREFLIGHT=true` for staging. The
 preflight checks validation metadata, recommendation-service URL, Postgres DSN

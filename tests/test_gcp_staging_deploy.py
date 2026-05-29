@@ -18,6 +18,10 @@ def _valid_values() -> dict[str, str]:
         "CHATBOT_STAGING_SERVICE_ACCOUNT": "chatbot@test-project.iam.gserviceaccount.com",
         "CLOUD_SQL_CONNECTION_NAME": "test-project:asia-northeast3:chatbot",
         "SERVERLESS_VPC_CONNECTOR": "chatbot-staging",
+        "AUTH_SERVICE_URL": "https://auth.example.com",
+        "RECOMMENDATION_SERVICE_URL": "https://recommendation.example.com:443",
+        "CHATBOT_LLM_ENDPOINT_URL": "https://llm.example.com/v1/chat/completions",
+        "CHATBOT_LLM_MODEL": "staging-chatbot",
         "DB_DSN_SECRET_VERSION": "1",
         "REDIS_URL_SECRET_VERSION": "2",
         "HF_TOKEN_SECRET_VERSION": "3",
@@ -35,6 +39,8 @@ def test_build_cloudbuild_submit_command_maps_substitutions():
     assert "deploy/gcp/cloudbuild.staging.yaml" in command
     assert "_REGION=asia-northeast3" in joined
     assert "_SERVICE_ACCOUNT=chatbot@test-project.iam.gserviceaccount.com" in joined
+    assert "_RECOMMENDATION_SERVICE_URL=https://recommendation.example.com:443" in joined
+    assert "_CHATBOT_LLM_MODEL=staging-chatbot" in joined
     assert "_DB_DSN_SECRET_VERSION=1" in joined
 
 
