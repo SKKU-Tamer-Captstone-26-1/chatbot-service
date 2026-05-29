@@ -49,4 +49,4 @@ credentials.
 
 ## Next Step
 
-Continue with `007-server-llm-deployment.md`.
+Continue with `007-frontend-chatbot-integration.md`.

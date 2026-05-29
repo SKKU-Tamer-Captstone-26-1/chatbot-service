@@ -1,4 +1,4 @@
-# 008 Evaluation And Release Gates
+# 009 Evaluation And Release Gates
 
 ## Goal
 
@@ -35,4 +35,4 @@ implementation.
 
 ## Next Step
 
-Continue with `009-training-data-pipeline.md`.
+Continue with `010-training-data-pipeline.md`.

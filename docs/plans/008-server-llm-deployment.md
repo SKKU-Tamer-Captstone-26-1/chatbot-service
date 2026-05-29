@@ -1,4 +1,4 @@
-# 007 Server LLM Deployment
+# 008 Server LLM Deployment
 
 ## Goal
 
@@ -44,4 +44,4 @@ implementation and human choice.
 
 ## Next Step
 
-Continue with `008-evaluation-release-gates.md`.
+Continue with `009-evaluation-release-gates.md`.

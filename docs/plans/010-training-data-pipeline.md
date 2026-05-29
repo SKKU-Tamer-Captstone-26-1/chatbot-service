@@ -1,4 +1,4 @@
-# 009 Training Data Pipeline
+# 010 Training Data Pipeline
 
 ## Goal
 
@@ -40,7 +40,7 @@ chatbot PostgreSQL logs
 
 - Training data cannot include unapproved private data.
 - Every training example can be traced to source policy and consent state.
-- New checkpoint passes `008-evaluation-release-gates.md` before serving
+- New checkpoint passes `009-evaluation-release-gates.md` before serving
   production traffic.
 
 ## Current Status
@@ -50,4 +50,4 @@ policy is approved.
 
 ## Next Step
 
-Continue with `010-production-launch.md`.
+Continue with `011-production-launch.md`.
