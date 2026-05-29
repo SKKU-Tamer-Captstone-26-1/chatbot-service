@@ -44,15 +44,24 @@ Before submitting, check the tracked deployment artifacts:
 chatbot-gcp-staging-check
 ```
 
+Copy `deploy/gcp/staging.substitutions.env.example` to the ignored
+`deploy/gcp/staging.substitutions.env` file, then fill it from Terraform outputs
+and pinned Secret Manager version numbers:
+
 ```bash
+set -a
+. deploy/gcp/staging.substitutions.env
+set +a
+
 gcloud builds submit \
+  --project "$PROJECT_ID" \
   --config deploy/gcp/cloudbuild.staging.yaml \
-  --substitutions "_REGION=$REGION,_REPOSITORY=$REPOSITORY,_SERVICE_ACCOUNT=$CHATBOT_STAGING_SERVICE_ACCOUNT,_CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION_NAME,_SERVERLESS_VPC_CONNECTOR=$SERVERLESS_VPC_CONNECTOR,_DB_DSN_SECRET_VERSION=$DB_DSN_SECRET_VERSION,_REDIS_URL_SECRET_VERSION=$REDIS_URL_SECRET_VERSION,_HF_TOKEN_SECRET_VERSION=$HF_TOKEN_SECRET_VERSION"
+  --substitutions "_REGION=$REGION,_REPOSITORY=$REPOSITORY,_SERVICE_NAME=$SERVICE_NAME,_MIGRATION_JOB_NAME=$MIGRATION_JOB_NAME,_SERVICE_ACCOUNT=$CHATBOT_STAGING_SERVICE_ACCOUNT,_CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION_NAME,_SERVERLESS_VPC_CONNECTOR=$SERVERLESS_VPC_CONNECTOR,_DB_DSN_SECRET_VERSION=$DB_DSN_SECRET_VERSION,_REDIS_URL_SECRET_VERSION=$REDIS_URL_SECRET_VERSION,_HF_TOKEN_SECRET_VERSION=$HF_TOKEN_SECRET_VERSION"
 ```
 
-Override every `REPLACE_WITH_*` substitution before submitting. The pipeline
-uses pinned secret versions and runs `chatbot-migrate` before deploying the
-serving revision.
+Override every `REPLACE_WITH_*` value before submitting. The pipeline uses
+pinned secret versions and runs `chatbot-migrate` before deploying the serving
+revision.
 
 ## Base Infrastructure
 

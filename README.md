@@ -171,6 +171,7 @@ staging env template, and deployment runbook:
 Dockerfile
 deploy/gcp/cloudbuild.staging.yaml
 deploy/gcp/staging.env.yaml
+deploy/gcp/staging.substitutions.env.example
 deploy/gcp/staging.validation.env.example
 docs/deployment/gcp-staging.md
 infra/gcp/staging/

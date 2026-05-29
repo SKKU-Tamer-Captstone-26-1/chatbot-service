@@ -16,6 +16,7 @@ REQUIRED_FILES = (
     "Dockerfile",
     "deploy/gcp/staging.env.yaml",
     "deploy/gcp/cloudbuild.staging.yaml",
+    "deploy/gcp/staging.substitutions.env.example",
     "deploy/gcp/staging.validation.env.example",
     "docs/deployment/gcp-staging.md",
     "infra/gcp/staging/README.md",
@@ -70,9 +71,24 @@ REQUIRED_VALIDATION_TEMPLATE_KEYS = (
     "HF_TOKEN=",
 )
 
+REQUIRED_BUILD_SUBSTITUTION_TEMPLATE_KEYS = (
+    "PROJECT_ID=",
+    "REGION=",
+    "REPOSITORY=",
+    "SERVICE_NAME=",
+    "MIGRATION_JOB_NAME=",
+    "CHATBOT_STAGING_SERVICE_ACCOUNT=",
+    "CLOUD_SQL_CONNECTION_NAME=",
+    "SERVERLESS_VPC_CONNECTOR=",
+    "DB_DSN_SECRET_VERSION=",
+    "REDIS_URL_SECRET_VERSION=",
+    "HF_TOKEN_SECRET_VERSION=",
+)
+
 REQUIRED_RUNBOOK_TOKENS = (
     "infra/gcp/staging",
     "deploy/gcp/cloudbuild.staging.yaml",
+    "deploy/gcp/staging.substitutions.env.example",
     "deploy/gcp/staging.validation.env.example",
     "chatbot-migrate",
     "chatbot-validate preflight",
@@ -150,10 +166,25 @@ def check_gcp_staging_artifacts(root: Path | None = None) -> GcpStagingArtifactC
         else "failed: validation template should keep placeholder values"
     )
 
+    build_substitutions_template = _read(root / "deploy/gcp/staging.substitutions.env.example")
+    checks["build_substitutions_template_required_keys"] = _contains_all(
+        build_substitutions_template,
+        REQUIRED_BUILD_SUBSTITUTION_TEMPLATE_KEYS,
+    )
+    checks["build_substitutions_template_placeholders"] = (
+        "ok"
+        if "REPLACE_WITH_" in build_substitutions_template
+        else "failed: substitutions template should keep placeholder values"
+    )
+
     gitignore = _read(root / ".gitignore")
     checks["operator_env_ignored"] = _contains_all(
         gitignore,
-        ("deploy/gcp/*.local.env", "deploy/gcp/staging.validation.env"),
+        (
+            "deploy/gcp/*.local.env",
+            "deploy/gcp/staging.substitutions.env",
+            "deploy/gcp/staging.validation.env",
+        ),
     )
 
     runbook = _read(root / "docs/deployment/gcp-staging.md")

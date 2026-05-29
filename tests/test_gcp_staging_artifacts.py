@@ -49,6 +49,7 @@ def test_gcp_staging_artifact_preflight_passes():
     assert result.passed is True
     assert result.checks["cloudbuild_migration_before_service"] == "ok"
     assert result.checks["staging_env_no_secret_values"] == "ok"
+    assert result.checks["build_substitutions_template_required_keys"] == "ok"
     assert result.checks["terraform_required_resources"] == "ok"
     assert result.checks["terraform_no_secret_values"] == "ok"
 
@@ -77,9 +78,26 @@ def test_validation_env_example_has_required_staging_knobs_as_placeholders():
     assert "HF_TOKEN=REPLACE_WITH_OPERATOR_LOCAL_TOKEN" in template
 
 
-def test_gitignore_blocks_filled_operator_validation_env():
+def test_build_substitutions_env_example_has_required_operator_values():
+    template = (ROOT / "deploy/gcp/staging.substitutions.env.example").read_text(
+        encoding="utf-8"
+    )
+
+    assert "PROJECT_ID=REPLACE_WITH_GCP_PROJECT_ID" in template
+    assert "REGION=asia-northeast3" in template
+    assert "REPOSITORY=REPLACE_WITH_ARTIFACT_REGISTRY_REPOSITORY" in template
+    assert "CHATBOT_STAGING_SERVICE_ACCOUNT=" in template
+    assert "CLOUD_SQL_CONNECTION_NAME=" in template
+    assert "SERVERLESS_VPC_CONNECTOR=" in template
+    assert "DB_DSN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
+    assert "REDIS_URL_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
+    assert "HF_TOKEN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
+
+
+def test_gitignore_blocks_filled_operator_env_files():
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
+    assert "deploy/gcp/staging.substitutions.env" in gitignore
     assert "deploy/gcp/staging.validation.env" in gitignore
 
 
@@ -88,6 +106,7 @@ def test_gcp_staging_runbook_records_required_acceptance_gates():
 
     assert "deploy/gcp/cloudbuild.staging.yaml" in runbook
     assert "infra/gcp/staging" in runbook
+    assert "deploy/gcp/staging.substitutions.env.example" in runbook
     assert "deploy/gcp/staging.validation.env.example" in runbook
     assert "chatbot-validate preflight" in runbook
     assert "chatbot-validate smoke" in runbook

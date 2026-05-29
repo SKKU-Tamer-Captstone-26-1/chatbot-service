@@ -31,6 +31,8 @@ validate behavior and load.
 - Cloud Run-ready `Dockerfile`.
 - Non-secret staging environment template at `deploy/gcp/staging.env.yaml`.
 - Cloud Build staging pipeline at `deploy/gcp/cloudbuild.staging.yaml`.
+- Operator-local Cloud Build substitutions template at
+  `deploy/gcp/staging.substitutions.env.example`.
 - Operator-local validation env template at
   `deploy/gcp/staging.validation.env.example`.
 - Terraform staging scaffold at `infra/gcp/staging`.
@@ -53,10 +55,10 @@ validate behavior and load.
 ## Current Status
 
 In progress. Container, non-secret env template, Cloud Build staging pipeline,
-validation env example, Terraform staging scaffold, staging artifact preflight,
-and runbook are in the repo. Actual GCP resources, staging URLs, and test
-credentials still require human provisioning before acceptance validation can
-run.
+Cloud Build substitutions example, validation env example, Terraform staging
+scaffold, staging artifact preflight, and runbook are in the repo. Actual GCP
+resources, staging URLs, and test credentials still require human provisioning
+before acceptance validation can run.
 
 ## Next Step
 
