@@ -40,6 +40,7 @@ validate behavior and load.
 - Terraform staging scaffold at `infra/gcp/staging`.
 - Optional Terraform IAM for a Cloud Build deployer service account.
 - Local staging artifact preflight command: `chatbot-gcp-staging-check`.
+- Local Cloud Build deploy helper: `chatbot-gcp-staging-deploy`.
 - Local Secret Manager version loader: `chatbot-gcp-staging-secrets`.
 - GCP staging runbook at `docs/deployment/gcp-staging.md`.
 - Staging environment variables are configured through Secret Manager or secure
@@ -61,9 +62,9 @@ validate behavior and load.
 In progress. Container, non-secret env template, Cloud Build staging pipeline,
 Cloud Build substitutions example, Secret Manager values example, validation env
 example, Terraform staging scaffold, staging artifact preflight, secret version
-loader, and runbook are in the repo. Actual GCP resources, staging URLs, and
-test credentials still require human provisioning before acceptance validation
-can run.
+loader, Cloud Build deploy helper, and runbook are in the repo. Actual GCP
+resources, staging URLs, and test credentials still require human provisioning
+before acceptance validation can run.
 
 ## Next Step
 

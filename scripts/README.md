@@ -145,6 +145,36 @@ service deployment, secret values are excluded from the non-secret env template,
 secret versions are pinned instead of `latest`, and validation env files are
 ignored when filled locally.
 
+## GCP Staging Deploy
+
+Submit the repeatable Cloud Build staging pipeline from an ignored substitutions
+file:
+
+```bash
+cp deploy/gcp/staging.substitutions.env.example deploy/gcp/staging.substitutions.env
+```
+
+Fill `deploy/gcp/staging.substitutions.env`, then dry-run:
+
+```bash
+chatbot-gcp-staging-deploy --dry-run
+```
+
+Submit:
+
+```bash
+chatbot-gcp-staging-deploy
+```
+
+Equivalent script form:
+
+```bash
+python3 scripts/deploy_gcp_staging.py --dry-run
+```
+
+The deploy helper rejects placeholders and `latest` secret versions before
+calling `gcloud builds submit`.
+
 ## GCP Staging Secrets
 
 Load operator-local staging secret values into Secret Manager after Terraform

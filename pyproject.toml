@@ -28,6 +28,7 @@ chatbot-service = "chatbot_service.main:main"
 chatbot-migrate = "chatbot_service.storage.migrations:main"
 chatbot-validate = "chatbot_service.validation.cli:main"
 chatbot-gcp-staging-check = "chatbot_service.deployment.gcp_staging_check:main"
+chatbot-gcp-staging-deploy = "chatbot_service.deployment.gcp_staging_deploy:main"
 chatbot-gcp-staging-secrets = "chatbot_service.deployment.gcp_staging_secrets:main"
 
 [tool.setuptools.packages.find]

@@ -189,6 +189,13 @@ Check staging deployment artifacts before Cloud Build submission:
 chatbot-gcp-staging-check
 ```
 
+Dry-run the Cloud Build staging deployment command from an ignored substitutions
+file:
+
+```bash
+chatbot-gcp-staging-deploy --dry-run
+```
+
 Load staging Secret Manager versions from an ignored operator-local file:
 
 ```bash
