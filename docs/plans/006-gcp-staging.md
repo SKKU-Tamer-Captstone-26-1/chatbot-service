@@ -43,6 +43,7 @@ validate behavior and load.
 - Local Cloud Build deploy helper: `chatbot-gcp-staging-deploy`.
 - Local Secret Manager version loader: `chatbot-gcp-staging-secrets`.
 - Local staging validation env-file runner: `chatbot-gcp-staging-validate`.
+- Local staging acceptance evidence checker: `chatbot-gcp-staging-acceptance`.
 - GCP staging runbook at `docs/deployment/gcp-staging.md`.
 - Staging environment variables are configured through Secret Manager or secure
   deployment config, not committed files.

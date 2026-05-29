@@ -235,3 +235,16 @@ Equivalent script form:
 ```bash
 python3 scripts/validate_gcp_staging.py preflight --dry-run
 ```
+
+After all validation files are saved, check whether the acceptance evidence is
+complete:
+
+```bash
+chatbot-gcp-staging-acceptance
+```
+
+Equivalent script form:
+
+```bash
+python3 scripts/check_gcp_staging_acceptance.py
+```

@@ -179,6 +179,7 @@ chatbot-gcp-staging-validate smoke \
   --output-file deploy/gcp/validation-output/smoke.json
 chatbot-gcp-staging-validate load \
   --output-file deploy/gcp/validation-output/load.json
+chatbot-gcp-staging-acceptance
 ```
 
 Store validation output with the staging release record. Do not commit the
@@ -193,6 +194,7 @@ operator-local env file or tokens.
 - `chatbot-validate smoke` proves health, `AskChatbot`, `GetConversation`, and
   `RecordChatbotFeedback`.
 - `chatbot-validate load` passes the configured 500-user/load threshold.
+- `chatbot-gcp-staging-acceptance` passes against saved validation output.
 - No secrets or service-account keys are added to git.
 
 ## References

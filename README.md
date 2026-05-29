@@ -207,3 +207,9 @@ Run staging validation from an ignored operator-local file:
 ```bash
 chatbot-gcp-staging-validate preflight --dry-run
 ```
+
+Check saved staging validation evidence:
+
+```bash
+chatbot-gcp-staging-acceptance
+```
