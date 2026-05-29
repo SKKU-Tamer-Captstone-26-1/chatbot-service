@@ -1,0 +1,73 @@
+# Cloud Build pipeline for GCP staging.
+# Override every REPLACE_WITH_* substitution at submit time.
+
+substitutions:
+  _REGION: "asia-northeast3"
+  _REPOSITORY: "REPLACE_WITH_ARTIFACT_REGISTRY_REPOSITORY"
+  _SERVICE_NAME: "ai-chatbot-service-staging"
+  _MIGRATION_JOB_NAME: "ai-chatbot-service-migrate-staging"
+  _SERVICE_ACCOUNT: "REPLACE_WITH_CLOUD_RUN_SERVICE_ACCOUNT"
+  _CLOUD_SQL_CONNECTION_NAME: "REPLACE_WITH_CLOUD_SQL_CONNECTION_NAME"
+  _SERVERLESS_VPC_CONNECTOR: "REPLACE_WITH_SERVERLESS_VPC_CONNECTOR"
+  _DB_DSN_SECRET_VERSION: "REPLACE_WITH_PINNED_SECRET_VERSION"
+  _REDIS_URL_SECRET_VERSION: "REPLACE_WITH_PINNED_SECRET_VERSION"
+  _HF_TOKEN_SECRET_VERSION: "REPLACE_WITH_PINNED_SECRET_VERSION"
+
+steps:
+  - id: "build-image"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "."
+
+  - id: "push-image"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+
+  - id: "run-migrations"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - "gcloud"
+      - "run"
+      - "jobs"
+      - "deploy"
+      - "${_MIGRATION_JOB_NAME}"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "--region=${_REGION}"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--set-secrets=CHATBOT_DB_DSN=chatbot-staging-db-dsn:${_DB_DSN_SECRET_VERSION}"
+      - "--set-cloudsql-instances=${_CLOUD_SQL_CONNECTION_NAME}"
+      - "--vpc-connector=${_SERVERLESS_VPC_CONNECTOR}"
+      - "--vpc-egress=private-ranges-only"
+      - "--command=chatbot-migrate"
+      - "--execute-now"
+      - "--wait"
+      - "--quiet"
+
+  - id: "deploy-service"
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - "gcloud"
+      - "run"
+      - "deploy"
+      - "${_SERVICE_NAME}"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "--region=${_REGION}"
+      - "--service-account=${_SERVICE_ACCOUNT}"
+      - "--env-vars-file=deploy/gcp/staging.env.yaml"
+      - "--set-secrets=CHATBOT_DB_DSN=chatbot-staging-db-dsn:${_DB_DSN_SECRET_VERSION},CHATBOT_CACHE_REDIS_URL=chatbot-staging-redis-url:${_REDIS_URL_SECRET_VERSION},HF_TOKEN=chatbot-staging-hf-token:${_HF_TOKEN_SECRET_VERSION}"
+      - "--set-cloudsql-instances=${_CLOUD_SQL_CONNECTION_NAME}"
+      - "--vpc-connector=${_SERVERLESS_VPC_CONNECTOR}"
+      - "--vpc-egress=private-ranges-only"
+      - "--port=8080"
+      - "--use-http2"
+      - "--startup-probe=grpc.port=8080,grpc.service=ontheblock.chatbot.v1.ChatbotService,initialDelaySeconds=5,failureThreshold=6,timeoutSeconds=3,periodSeconds=10"
+      - "--no-allow-unauthenticated"
+      - "--quiet"
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"

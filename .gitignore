@@ -8,3 +8,5 @@ __pycache__/
 .venv/
 build/
 dist/
+deploy/gcp/*.local.env
+deploy/gcp/staging.validation.env

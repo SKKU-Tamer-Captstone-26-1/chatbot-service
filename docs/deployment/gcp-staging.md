@@ -20,7 +20,8 @@ Manager or an operator-local shell only.
 
 ## Container
 
-Build the service image from the repository root:
+Build the service image from the repository root when doing a manual staging
+deploy:
 
 ```bash
 gcloud builds submit \
@@ -30,6 +31,22 @@ gcloud builds submit \
 The container listens on the Cloud Run `PORT` environment variable by default.
 For local Docker runs, override runtime dependencies through environment
 variables and keep secrets outside git.
+
+## Build And Deploy Pipeline
+
+Use `deploy/gcp/cloudbuild.staging.yaml` for the repeatable staging path. It
+builds the image, pushes it, deploys and runs the migration job, then deploys
+the Cloud Run service.
+
+```bash
+gcloud builds submit \
+  --config deploy/gcp/cloudbuild.staging.yaml \
+  --substitutions "_REGION=$REGION,_REPOSITORY=$REPOSITORY,_SERVICE_ACCOUNT=$CHATBOT_STAGING_SERVICE_ACCOUNT,_CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION_NAME,_SERVERLESS_VPC_CONNECTOR=$SERVERLESS_VPC_CONNECTOR,_DB_DSN_SECRET_VERSION=$DB_DSN_SECRET_VERSION,_REDIS_URL_SECRET_VERSION=$REDIS_URL_SECRET_VERSION,_HF_TOKEN_SECRET_VERSION=$HF_TOKEN_SECRET_VERSION"
+```
+
+Override every `REPLACE_WITH_*` substitution before submitting. The pipeline
+uses pinned secret versions and runs `chatbot-migrate` before deploying the
+serving revision.
 
 ## Secrets
 
@@ -105,7 +122,9 @@ checksum-checked.
 ## Validate Staging
 
 Run preflight first from an operator machine that can reach the staging gateway
-or approved gRPC endpoint:
+or approved gRPC endpoint. Use `deploy/gcp/staging.validation.env.example` as
+the operator-local template and do not commit filled values. A filled
+`deploy/gcp/staging.validation.env` file is ignored by git:
 
 ```bash
 export CHATBOT_VALIDATION_TARGET="$CHATBOT_STAGING_GATEWAY_HOST:443"

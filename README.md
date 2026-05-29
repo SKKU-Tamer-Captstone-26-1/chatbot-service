@@ -169,7 +169,9 @@ staging env template, and deployment runbook:
 
 ```text
 Dockerfile
+deploy/gcp/cloudbuild.staging.yaml
 deploy/gcp/staging.env.yaml
+deploy/gcp/staging.validation.env.example
 docs/deployment/gcp-staging.md
 ```
 
