@@ -52,7 +52,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 def load_config() -> ChatbotConfig:
     return ChatbotConfig(
-        service_addr=os.getenv("CHATBOT_SERVICE_ADDR", ":9100"),
+        service_addr=_service_addr_from_env(),
         auth_mode=os.getenv("CHATBOT_AUTH_MODE", "validate_token"),
         auth_user_id_metadata_key=os.getenv("CHATBOT_AUTH_USER_ID_METADATA_KEY", "x-user-id"),
         auth_authorization_metadata_key=os.getenv(
@@ -95,3 +95,13 @@ def load_config() -> ChatbotConfig:
         persistence_retry_attempts=int(os.getenv("CHATBOT_PERSISTENCE_RETRY_ATTEMPTS", "3")),
         metrics_snapshot_path=os.getenv("CHATBOT_METRICS_SNAPSHOT_PATH", ""),
     )
+
+
+def _service_addr_from_env() -> str:
+    configured = os.getenv("CHATBOT_SERVICE_ADDR", "").strip()
+    if configured:
+        return configured
+    port = os.getenv("PORT", "").strip()
+    if port:
+        return f":{port}"
+    return ":9100"

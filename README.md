@@ -161,3 +161,19 @@ The gRPC service now implements `AskChatbot`, `GetConversation`, and
 
 Authenticated user identity is resolved from trusted gRPC metadata. Public
 chatbot requests must not include a trusted `user_id`.
+
+## GCP Staging
+
+Plan `006` is implemented through a Cloud Run-ready container, non-secret
+staging env template, and deployment runbook:
+
+```text
+Dockerfile
+deploy/gcp/staging.env.yaml
+docs/deployment/gcp-staging.md
+```
+
+The service listens on Cloud Run `PORT` when `CHATBOT_SERVICE_ADDR` is not set.
+Secrets such as `CHATBOT_DB_DSN`, `CHATBOT_CACHE_REDIS_URL`, provider tokens,
+and staging validation tokens must be injected from Secret Manager or an
+operator-local environment, never committed.

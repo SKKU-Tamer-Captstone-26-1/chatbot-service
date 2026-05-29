@@ -4,6 +4,7 @@ from chatbot_service.config import load_config
 def test_load_config_defaults(monkeypatch):
     for name in (
         "CHATBOT_SERVICE_ADDR",
+        "PORT",
         "CHATBOT_AUTH_MODE",
         "CHATBOT_LLM_PROVIDER",
         "CHATBOT_LLM_AUTH_MODE",
@@ -46,6 +47,15 @@ def test_load_config_defaults(monkeypatch):
     assert config.persistence_queue_max_size == 1000
     assert config.persistence_retry_attempts == 3
     assert config.metrics_snapshot_path == ""
+
+
+def test_load_config_uses_cloud_run_port_when_service_addr_is_unset(monkeypatch):
+    monkeypatch.delenv("CHATBOT_SERVICE_ADDR", raising=False)
+    monkeypatch.setenv("PORT", "8080")
+
+    config = load_config()
+
+    assert config.service_addr == ":8080"
 
 
 def test_boolean_config_accepts_false(monkeypatch):

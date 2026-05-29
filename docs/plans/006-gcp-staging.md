@@ -28,6 +28,9 @@ validate behavior and load.
 
 ## Deliverables
 
+- Cloud Run-ready `Dockerfile`.
+- Non-secret staging environment template at `deploy/gcp/staging.env.yaml`.
+- GCP staging runbook at `docs/deployment/gcp-staging.md`.
 - Staging environment variables are configured through Secret Manager or secure
   deployment config, not committed files.
 - Migrations run against staging Cloud SQL.
@@ -44,8 +47,9 @@ validate behavior and load.
 
 ## Current Status
 
-Not started. Requires human-provided GCP project, staging URLs, and test
-credentials.
+In progress. Container, non-secret env template, and runbook are in the repo.
+Actual GCP resources, staging URLs, and test credentials still require human
+provisioning before acceptance validation can run.
 
 ## Next Step
 
