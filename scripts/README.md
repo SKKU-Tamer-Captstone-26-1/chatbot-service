@@ -204,3 +204,34 @@ python3 scripts/load_gcp_staging_secrets.py --dry-run
 
 The loader passes each secret to `gcloud secrets versions add --data-file=-`
 through stdin, so secret values do not appear in command arguments.
+
+## GCP Staging Validation
+
+Run staging validation from an ignored operator-local env file:
+
+```bash
+cp deploy/gcp/staging.validation.env.example deploy/gcp/staging.validation.env
+```
+
+Fill `deploy/gcp/staging.validation.env`, then dry-run:
+
+```bash
+chatbot-gcp-staging-validate preflight --dry-run
+```
+
+Run and store validation JSON:
+
+```bash
+chatbot-gcp-staging-validate preflight \
+  --output-file deploy/gcp/validation-output/preflight.json
+chatbot-gcp-staging-validate smoke \
+  --output-file deploy/gcp/validation-output/smoke.json
+chatbot-gcp-staging-validate load \
+  --output-file deploy/gcp/validation-output/load.json
+```
+
+Equivalent script form:
+
+```bash
+python3 scripts/validate_gcp_staging.py preflight --dry-run
+```

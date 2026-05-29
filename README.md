@@ -201,3 +201,9 @@ Load staging Secret Manager versions from an ignored operator-local file:
 ```bash
 chatbot-gcp-staging-secrets --dry-run
 ```
+
+Run staging validation from an ignored operator-local file:
+
+```bash
+chatbot-gcp-staging-validate preflight --dry-run
+```

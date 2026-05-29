@@ -168,28 +168,17 @@ checksum-checked.
 Run preflight first from an operator machine that can reach the staging gateway
 or approved gRPC endpoint. Use `deploy/gcp/staging.validation.env.example` as
 the operator-local template and do not commit filled values. A filled
-`deploy/gcp/staging.validation.env` file is ignored by git:
+`deploy/gcp/staging.validation.env` file is ignored by git. Validation output
+under `deploy/gcp/validation-output/` is also ignored:
 
 ```bash
-export CHATBOT_VALIDATION_TARGET="$CHATBOT_STAGING_GATEWAY_HOST:443"
-export CHATBOT_VALIDATION_SECURE=true
-export CHATBOT_VALIDATION_USER_ID="validation-user"
-export CHATBOT_VALIDATION_AUTHORIZATION="Bearer REPLACE_WITH_STAGING_TOKEN"
-export RECOMMENDATION_SERVICE_URL="REPLACE_WITH_RECOMMENDATION_GRPC_TARGET"
-export CHATBOT_CACHE_BACKEND=redis
-export CHATBOT_CACHE_REDIS_URL="redis://REPLACE_WITH_REDIS_HOST:6379/0"
-export CHATBOT_STORE_CONVERSATIONS=true
-export CHATBOT_DB_DSN="postgres://REPLACE_WITH_STAGING_DSN"
-export CHATBOT_LLM_PROVIDER=huggingface_tgi
-export CHATBOT_LLM_ENDPOINT_URL="REPLACE_WITH_OPENAI_COMPATIBLE_CHAT_COMPLETIONS_URL"
-export CHATBOT_LLM_MODEL="REPLACE_WITH_STAGING_MODEL"
-export CHATBOT_LLM_AUTH_MODE=bearer_env
-export CHATBOT_LLM_API_KEY_ENV=HF_TOKEN
-export HF_TOKEN="REPLACE_WITH_OPERATOR_LOCAL_TOKEN"
-
-chatbot-validate preflight
-chatbot-validate smoke
-chatbot-validate load
+chatbot-gcp-staging-validate preflight --dry-run
+chatbot-gcp-staging-validate preflight \
+  --output-file deploy/gcp/validation-output/preflight.json
+chatbot-gcp-staging-validate smoke \
+  --output-file deploy/gcp/validation-output/smoke.json
+chatbot-gcp-staging-validate load \
+  --output-file deploy/gcp/validation-output/load.json
 ```
 
 Store validation output with the staging release record. Do not commit the

@@ -12,6 +12,7 @@ deploy/gcp/*.local.env
 deploy/gcp/staging.secrets.env
 deploy/gcp/staging.substitutions.env
 deploy/gcp/staging.validation.env
+deploy/gcp/validation-output/
 infra/**/*.tfvars
 infra/**/*.tfstate
 infra/**/*.tfstate.*
