@@ -54,6 +54,23 @@ Override every `REPLACE_WITH_*` substitution before submitting. The pipeline
 uses pinned secret versions and runs `chatbot-migrate` before deploying the
 serving revision.
 
+## Base Infrastructure
+
+Use `infra/gcp/staging` to provision non-secret base resources before the first
+Cloud Build deployment:
+
+```bash
+cd infra/gcp/staging
+terraform init
+terraform plan
+terraform apply
+```
+
+Keep `terraform.tfvars`, state files, and filled secret values outside git. The
+Terraform scaffold creates Secret Manager secret containers but does not create
+secret versions, so operator-supplied DB passwords, Redis URLs, LLM tokens, and
+validation tokens do not enter Terraform state.
+
 ## Secrets
 
 Create these Secret Manager entries in staging:

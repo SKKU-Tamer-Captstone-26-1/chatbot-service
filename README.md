@@ -173,6 +173,7 @@ deploy/gcp/cloudbuild.staging.yaml
 deploy/gcp/staging.env.yaml
 deploy/gcp/staging.validation.env.example
 docs/deployment/gcp-staging.md
+infra/gcp/staging/
 ```
 
 The service listens on Cloud Run `PORT` when `CHATBOT_SERVICE_ADDR` is not set.

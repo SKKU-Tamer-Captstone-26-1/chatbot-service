@@ -18,6 +18,11 @@ REQUIRED_FILES = (
     "deploy/gcp/cloudbuild.staging.yaml",
     "deploy/gcp/staging.validation.env.example",
     "docs/deployment/gcp-staging.md",
+    "infra/gcp/staging/README.md",
+    "infra/gcp/staging/main.tf",
+    "infra/gcp/staging/outputs.tf",
+    "infra/gcp/staging/variables.tf",
+    "infra/gcp/staging/versions.tf",
 )
 
 REQUIRED_NON_SECRET_ENV_KEYS = (
@@ -66,12 +71,36 @@ REQUIRED_VALIDATION_TEMPLATE_KEYS = (
 )
 
 REQUIRED_RUNBOOK_TOKENS = (
+    "infra/gcp/staging",
     "deploy/gcp/cloudbuild.staging.yaml",
     "deploy/gcp/staging.validation.env.example",
     "chatbot-migrate",
     "chatbot-validate preflight",
     "chatbot-validate smoke",
     "chatbot-validate load",
+)
+
+REQUIRED_TERRAFORM_MAIN_TOKENS = (
+    "google_project_service",
+    "google_artifact_registry_repository",
+    "google_service_account",
+    "google_compute_network",
+    "google_vpc_access_connector",
+    "google_sql_database_instance",
+    "database_version    = \"POSTGRES_16\"",
+    "ipv4_enabled    = false",
+    "google_redis_instance",
+    "connect_mode       = \"PRIVATE_SERVICE_ACCESS\"",
+    "google_secret_manager_secret",
+    "roles/secretmanager.secretAccessor",
+    "roles/cloudsql.client",
+    "roles/vpcaccess.user",
+)
+
+FORBIDDEN_TERRAFORM_SECRET_TOKENS = (
+    "secret_data",
+    "password =",
+    "private_key",
 )
 
 
@@ -129,6 +158,22 @@ def check_gcp_staging_artifacts(root: Path | None = None) -> GcpStagingArtifactC
 
     runbook = _read(root / "docs/deployment/gcp-staging.md")
     checks["runbook_required_steps"] = _contains_all(runbook, REQUIRED_RUNBOOK_TOKENS)
+
+    terraform_main = _read(root / "infra/gcp/staging/main.tf")
+    checks["terraform_required_resources"] = _contains_all(
+        terraform_main,
+        REQUIRED_TERRAFORM_MAIN_TOKENS,
+    )
+    checks["terraform_no_secret_values"] = _contains_none(
+        terraform_main,
+        FORBIDDEN_TERRAFORM_SECRET_TOKENS,
+    )
+
+    terraform_readme = _read(root / "infra/gcp/staging/README.md")
+    checks["terraform_readme_secret_policy"] = _contains_all(
+        terraform_readme,
+        ("does not create secret values", "Do not put DB passwords"),
+    )
 
     return GcpStagingArtifactCheck(
         passed=all(value == "ok" for value in checks.values()),

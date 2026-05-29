@@ -49,6 +49,8 @@ def test_gcp_staging_artifact_preflight_passes():
     assert result.passed is True
     assert result.checks["cloudbuild_migration_before_service"] == "ok"
     assert result.checks["staging_env_no_secret_values"] == "ok"
+    assert result.checks["terraform_required_resources"] == "ok"
+    assert result.checks["terraform_no_secret_values"] == "ok"
 
 
 def test_gcp_staging_artifact_preflight_fails_when_required_file_missing(tmp_path):
@@ -85,9 +87,28 @@ def test_gcp_staging_runbook_records_required_acceptance_gates():
     runbook = (ROOT / "docs/deployment/gcp-staging.md").read_text(encoding="utf-8")
 
     assert "deploy/gcp/cloudbuild.staging.yaml" in runbook
+    assert "infra/gcp/staging" in runbook
     assert "deploy/gcp/staging.validation.env.example" in runbook
     assert "chatbot-validate preflight" in runbook
     assert "chatbot-validate smoke" in runbook
     assert "chatbot-validate load" in runbook
     assert "chatbot-migrate" in runbook
     assert "--use-http2" in runbook
+
+
+def test_terraform_scaffold_defines_base_staging_resources_without_secret_values():
+    main_tf = (ROOT / "infra/gcp/staging/main.tf").read_text(encoding="utf-8")
+    outputs_tf = (ROOT / "infra/gcp/staging/outputs.tf").read_text(encoding="utf-8")
+    gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+
+    assert "google_sql_database_instance" in main_tf
+    assert "database_version    = \"POSTGRES_16\"" in main_tf
+    assert "ipv4_enabled    = false" in main_tf
+    assert "google_redis_instance" in main_tf
+    assert "connect_mode       = \"PRIVATE_SERVICE_ACCESS\"" in main_tf
+    assert "google_secret_manager_secret" in main_tf
+    assert "secret_data" not in main_tf
+    assert "password =" not in main_tf
+    assert "cloud_sql_connection_name" in outputs_tf
+    assert "redis_host" in outputs_tf
+    assert "infra/**/*.tfvars" in gitignore
