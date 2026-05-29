@@ -144,3 +144,33 @@ The check verifies that required GCP staging files exist, migrations run before
 service deployment, secret values are excluded from the non-secret env template,
 secret versions are pinned instead of `latest`, and validation env files are
 ignored when filled locally.
+
+## GCP Staging Secrets
+
+Load operator-local staging secret values into Secret Manager after Terraform
+has created the secret containers:
+
+```bash
+cp deploy/gcp/staging.secrets.env.example deploy/gcp/staging.secrets.env
+```
+
+Fill `deploy/gcp/staging.secrets.env`, then dry-run:
+
+```bash
+chatbot-gcp-staging-secrets --dry-run
+```
+
+Upload new versions:
+
+```bash
+chatbot-gcp-staging-secrets
+```
+
+Equivalent script form:
+
+```bash
+python3 scripts/load_gcp_staging_secrets.py --dry-run
+```
+
+The loader passes each secret to `gcloud secrets versions add --data-file=-`
+through stdin, so secret values do not appear in command arguments.

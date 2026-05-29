@@ -9,6 +9,7 @@ __pycache__/
 build/
 dist/
 deploy/gcp/*.local.env
+deploy/gcp/staging.secrets.env
 deploy/gcp/staging.substitutions.env
 deploy/gcp/staging.validation.env
 infra/**/*.tfvars

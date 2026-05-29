@@ -50,6 +50,7 @@ def test_gcp_staging_artifact_preflight_passes():
     assert result.checks["cloudbuild_migration_before_service"] == "ok"
     assert result.checks["staging_env_no_secret_values"] == "ok"
     assert result.checks["build_substitutions_template_required_keys"] == "ok"
+    assert result.checks["secret_template_required_keys"] == "ok"
     assert result.checks["terraform_required_resources"] == "ok"
     assert result.checks["terraform_no_secret_values"] == "ok"
 
@@ -94,9 +95,23 @@ def test_build_substitutions_env_example_has_required_operator_values():
     assert "HF_TOKEN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
 
 
+def test_secret_env_example_has_required_operator_values():
+    template = (ROOT / "deploy/gcp/staging.secrets.env.example").read_text(encoding="utf-8")
+
+    assert "PROJECT_ID=REPLACE_WITH_GCP_PROJECT_ID" in template
+    assert "CHATBOT_DB_DSN=postgres://" in template
+    assert "CHATBOT_CACHE_REDIS_URL=redis://" in template
+    assert "HF_TOKEN=REPLACE_WITH_HUGGING_FACE_TOKEN" in template
+    assert (
+        'CHATBOT_VALIDATION_AUTHORIZATION="Bearer REPLACE_WITH_STAGING_VALIDATION_TOKEN"'
+        in template
+    )
+
+
 def test_gitignore_blocks_filled_operator_env_files():
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
+    assert "deploy/gcp/staging.secrets.env" in gitignore
     assert "deploy/gcp/staging.substitutions.env" in gitignore
     assert "deploy/gcp/staging.validation.env" in gitignore
 
@@ -106,6 +121,7 @@ def test_gcp_staging_runbook_records_required_acceptance_gates():
 
     assert "deploy/gcp/cloudbuild.staging.yaml" in runbook
     assert "infra/gcp/staging" in runbook
+    assert "deploy/gcp/staging.secrets.env.example" in runbook
     assert "deploy/gcp/staging.substitutions.env.example" in runbook
     assert "deploy/gcp/staging.validation.env.example" in runbook
     assert "chatbot-validate preflight" in runbook

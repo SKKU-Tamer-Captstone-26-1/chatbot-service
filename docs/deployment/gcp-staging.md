@@ -102,6 +102,19 @@ the Cloud SQL Unix socket host, for example:
 postgres://USER:PASSWORD@/DB_NAME?host=/cloudsql/PROJECT:REGION:INSTANCE
 ```
 
+After Terraform creates the secret containers, copy
+`deploy/gcp/staging.secrets.env.example` to the ignored
+`deploy/gcp/staging.secrets.env` file and fill it with operator-local values.
+Then load pinned Secret Manager versions:
+
+```bash
+chatbot-gcp-staging-secrets --dry-run
+chatbot-gcp-staging-secrets
+```
+
+The loader uses `gcloud secrets versions add --data-file=-` and sends each
+secret through stdin, so values do not appear in command-line arguments.
+
 ## Deploy Cloud Run
 
 Deploy the staged service with non-secret env vars from

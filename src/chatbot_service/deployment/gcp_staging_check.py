@@ -16,6 +16,7 @@ REQUIRED_FILES = (
     "Dockerfile",
     "deploy/gcp/staging.env.yaml",
     "deploy/gcp/cloudbuild.staging.yaml",
+    "deploy/gcp/staging.secrets.env.example",
     "deploy/gcp/staging.substitutions.env.example",
     "deploy/gcp/staging.validation.env.example",
     "docs/deployment/gcp-staging.md",
@@ -85,9 +86,18 @@ REQUIRED_BUILD_SUBSTITUTION_TEMPLATE_KEYS = (
     "HF_TOKEN_SECRET_VERSION=",
 )
 
+REQUIRED_SECRET_TEMPLATE_KEYS = (
+    "PROJECT_ID=",
+    "CHATBOT_DB_DSN=",
+    "CHATBOT_CACHE_REDIS_URL=",
+    "HF_TOKEN=",
+    "CHATBOT_VALIDATION_AUTHORIZATION=",
+)
+
 REQUIRED_RUNBOOK_TOKENS = (
     "infra/gcp/staging",
     "deploy/gcp/cloudbuild.staging.yaml",
+    "deploy/gcp/staging.secrets.env.example",
     "deploy/gcp/staging.substitutions.env.example",
     "deploy/gcp/staging.validation.env.example",
     "chatbot-migrate",
@@ -177,11 +187,23 @@ def check_gcp_staging_artifacts(root: Path | None = None) -> GcpStagingArtifactC
         else "failed: substitutions template should keep placeholder values"
     )
 
+    secret_template = _read(root / "deploy/gcp/staging.secrets.env.example")
+    checks["secret_template_required_keys"] = _contains_all(
+        secret_template,
+        REQUIRED_SECRET_TEMPLATE_KEYS,
+    )
+    checks["secret_template_placeholders"] = (
+        "ok"
+        if "REPLACE_WITH_" in secret_template
+        else "failed: secret template should keep placeholder values"
+    )
+
     gitignore = _read(root / ".gitignore")
     checks["operator_env_ignored"] = _contains_all(
         gitignore,
         (
             "deploy/gcp/*.local.env",
+            "deploy/gcp/staging.secrets.env",
             "deploy/gcp/staging.substitutions.env",
             "deploy/gcp/staging.validation.env",
         ),

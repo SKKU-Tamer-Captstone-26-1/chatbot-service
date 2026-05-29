@@ -33,10 +33,13 @@ validate behavior and load.
 - Cloud Build staging pipeline at `deploy/gcp/cloudbuild.staging.yaml`.
 - Operator-local Cloud Build substitutions template at
   `deploy/gcp/staging.substitutions.env.example`.
+- Operator-local Secret Manager values template at
+  `deploy/gcp/staging.secrets.env.example`.
 - Operator-local validation env template at
   `deploy/gcp/staging.validation.env.example`.
 - Terraform staging scaffold at `infra/gcp/staging`.
 - Local staging artifact preflight command: `chatbot-gcp-staging-check`.
+- Local Secret Manager version loader: `chatbot-gcp-staging-secrets`.
 - GCP staging runbook at `docs/deployment/gcp-staging.md`.
 - Staging environment variables are configured through Secret Manager or secure
   deployment config, not committed files.
@@ -55,10 +58,11 @@ validate behavior and load.
 ## Current Status
 
 In progress. Container, non-secret env template, Cloud Build staging pipeline,
-Cloud Build substitutions example, validation env example, Terraform staging
-scaffold, staging artifact preflight, and runbook are in the repo. Actual GCP
-resources, staging URLs, and test credentials still require human provisioning
-before acceptance validation can run.
+Cloud Build substitutions example, Secret Manager values example, validation env
+example, Terraform staging scaffold, staging artifact preflight, secret version
+loader, and runbook are in the repo. Actual GCP resources, staging URLs, and
+test credentials still require human provisioning before acceptance validation
+can run.
 
 ## Next Step
 

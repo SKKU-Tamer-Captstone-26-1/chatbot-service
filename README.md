@@ -171,6 +171,7 @@ staging env template, and deployment runbook:
 Dockerfile
 deploy/gcp/cloudbuild.staging.yaml
 deploy/gcp/staging.env.yaml
+deploy/gcp/staging.secrets.env.example
 deploy/gcp/staging.substitutions.env.example
 deploy/gcp/staging.validation.env.example
 docs/deployment/gcp-staging.md
@@ -186,4 +187,10 @@ Check staging deployment artifacts before Cloud Build submission:
 
 ```bash
 chatbot-gcp-staging-check
+```
+
+Load staging Secret Manager versions from an ignored operator-local file:
+
+```bash
+chatbot-gcp-staging-secrets --dry-run
 ```
