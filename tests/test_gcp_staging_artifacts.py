@@ -42,6 +42,7 @@ def test_cloudbuild_pipeline_runs_migrations_before_service_deploy():
     assert "_RECOMMENDATION_SERVICE_GRPC_TLS" in pipeline
     assert "_CHATBOT_LLM_ENDPOINT_URL" in pipeline
     assert "_CHATBOT_LLM_MODEL" in pipeline
+    assert "_CHATBOT_LLM_AUTH_MODE" in pipeline
     assert "--set-secrets=" in pipeline
     assert "--use-http2" in pipeline
     assert ":latest" not in pipeline
@@ -80,7 +81,8 @@ def test_validation_env_example_has_required_staging_knobs_as_placeholders():
     assert "CHATBOT_VALIDATION_REQUESTS=500" in template
     assert "CHATBOT_CACHE_BACKEND=redis" in template
     assert "CHATBOT_LLM_PROVIDER=huggingface_tgi" in template
-    assert "HF_TOKEN=REPLACE_WITH_OPERATOR_LOCAL_TOKEN" in template
+    assert "CHATBOT_LLM_AUTH_MODE=none" in template
+    assert "HF_TOKEN=REPLACE_WITH_OPTIONAL_BEARER_TOKEN" in template
 
 
 def test_build_substitutions_env_example_has_required_operator_values():
@@ -105,6 +107,7 @@ def test_build_substitutions_env_example_has_required_operator_values():
         in template
     )
     assert "CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct" in template
+    assert "CHATBOT_LLM_AUTH_MODE=none" in template
     assert "DB_DSN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
     assert "REDIS_URL_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
     assert "HF_TOKEN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template

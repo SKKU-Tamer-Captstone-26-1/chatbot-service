@@ -23,6 +23,7 @@ def _valid_values() -> dict[str, str]:
         "RECOMMENDATION_SERVICE_GRPC_TLS": "true",
         "CHATBOT_LLM_ENDPOINT_URL": "https://llm.example.com/v1/chat/completions",
         "CHATBOT_LLM_MODEL": "staging-chatbot",
+        "CHATBOT_LLM_AUTH_MODE": "none",
         "DB_DSN_SECRET_VERSION": "1",
         "REDIS_URL_SECRET_VERSION": "2",
         "HF_TOKEN_SECRET_VERSION": "3",
@@ -43,6 +44,7 @@ def test_build_cloudbuild_submit_command_maps_substitutions():
     assert "_RECOMMENDATION_SERVICE_GRPC_ADDR=recommendation.example.com:443" in joined
     assert "_RECOMMENDATION_SERVICE_GRPC_TLS=true" in joined
     assert "_CHATBOT_LLM_MODEL=staging-chatbot" in joined
+    assert "_CHATBOT_LLM_AUTH_MODE=none" in joined
     assert "_DB_DSN_SECRET_VERSION=1" in joined
 
 

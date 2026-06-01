@@ -96,8 +96,10 @@ chatbot-staging-validation-authorization:<pinned-version>
 ```
 
 Use `HF_TOKEN` only when `CHATBOT_LLM_AUTH_MODE=bearer_env`. For a private
-endpoint that does not need bearer auth, set `CHATBOT_LLM_AUTH_MODE=none` and
-omit the `HF_TOKEN` secret from the service.
+endpoint that does not need bearer auth, set `CHATBOT_LLM_AUTH_MODE=none`.
+The tracked Cloud Build template keeps the `HF_TOKEN` secret wiring available
+for protected endpoints, but the runtime does not read it when auth mode is
+`none`.
 
 For Cloud SQL through the Cloud Run connector, store a PostgreSQL DSN that uses
 the Cloud SQL Unix socket host, for example:
@@ -139,7 +141,7 @@ gcloud run deploy ai-chatbot-service-staging \
   --image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/ai-chatbot-service:$GIT_SHA" \
   --region "$REGION" \
   --service-account "$CHATBOT_STAGING_SERVICE_ACCOUNT" \
-  --set-env-vars "AUTH_SERVICE_URL=$AUTH_SERVICE_URL,RECOMMENDATION_SERVICE_GRPC_ADDR=$RECOMMENDATION_SERVICE_GRPC_ADDR,RECOMMENDATION_SERVICE_GRPC_TLS=true,CHATBOT_LLM_PROVIDER=huggingface_tgi,CHATBOT_LLM_MODEL=$CHATBOT_LLM_MODEL,CHATBOT_LLM_ENDPOINT_URL=$CHATBOT_LLM_ENDPOINT_URL,CHATBOT_LLM_AUTH_MODE=bearer_env,CHATBOT_LLM_API_KEY_ENV=HF_TOKEN,CHATBOT_CACHE_BACKEND=redis,CHATBOT_STORE_CONVERSATIONS=true" \
+  --set-env-vars "AUTH_SERVICE_URL=$AUTH_SERVICE_URL,RECOMMENDATION_SERVICE_GRPC_ADDR=$RECOMMENDATION_SERVICE_GRPC_ADDR,RECOMMENDATION_SERVICE_GRPC_TLS=true,CHATBOT_LLM_PROVIDER=huggingface_tgi,CHATBOT_LLM_MODEL=$CHATBOT_LLM_MODEL,CHATBOT_LLM_ENDPOINT_URL=$CHATBOT_LLM_ENDPOINT_URL,CHATBOT_LLM_AUTH_MODE=$CHATBOT_LLM_AUTH_MODE,CHATBOT_LLM_API_KEY_ENV=HF_TOKEN,CHATBOT_CACHE_BACKEND=redis,CHATBOT_STORE_CONVERSATIONS=true" \
   --set-secrets "CHATBOT_DB_DSN=chatbot-staging-db-dsn:$DB_DSN_SECRET_VERSION,CHATBOT_CACHE_REDIS_URL=chatbot-staging-redis-url:$REDIS_URL_SECRET_VERSION,HF_TOKEN=chatbot-staging-hf-token:$HF_TOKEN_SECRET_VERSION" \
   --set-cloudsql-instances "$CLOUD_SQL_CONNECTION_NAME" \
   --vpc-connector "$SERVERLESS_VPC_CONNECTOR" \
