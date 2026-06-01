@@ -43,7 +43,7 @@ gateway/frontend 연결, staging 검증이다.
 
    ```text
    CHATBOT_LLM_ENDPOINT_URL=https://<endpoint>/v1/chat/completions
-   CHATBOT_LLM_MODEL=<model-or-endpoint-model-name>
+   CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
    ```
 
 3. LLM 인증 방식을 확정한다.
@@ -67,7 +67,8 @@ gateway/frontend 연결, staging 검증이다.
    예시는 다음 형태다.
 
    ```text
-   RECOMMENDATION_SERVICE_URL=https://recommendation-service-vcuepibcwq-du.a.run.app:443
+   RECOMMENDATION_SERVICE_GRPC_ADDR=recommendation-service-vcuepibcwq-du.a.run.app:443
+   RECOMMENDATION_SERVICE_GRPC_TLS=true
    ```
 
    이 값은 팀원이 관리하는 recommendation-service의 실제 staging gRPC endpoint와
@@ -149,9 +150,10 @@ CHATBOT_VALIDATION_AUTHORIZATION=Bearer <STAGING_VALIDATION_TOKEN>
    CLOUD_SQL_CONNECTION_NAME=on-the-block-2026:asia-northeast3:chatbot-staging-postgres
    SERVERLESS_VPC_CONNECTOR=chatbot-staging
    AUTH_SERVICE_URL=<AUTH_SERVICE_URL>
-   RECOMMENDATION_SERVICE_URL=<RECOMMENDATION_GRPC_TARGET>
+   RECOMMENDATION_SERVICE_GRPC_ADDR=recommendation-service-vcuepibcwq-du.a.run.app:443
+   RECOMMENDATION_SERVICE_GRPC_TLS=true
    CHATBOT_LLM_ENDPOINT_URL=<LLM_ENDPOINT>
-   CHATBOT_LLM_MODEL=<MODEL_NAME>
+   CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
    DB_DSN_SECRET_VERSION=<PINNED_VERSION>
    REDIS_URL_SECRET_VERSION=<PINNED_VERSION>
    HF_TOKEN_SECRET_VERSION=<PINNED_VERSION>
@@ -173,7 +175,8 @@ CHATBOT_VALIDATION_AUTHORIZATION=Bearer <STAGING_VALIDATION_TOKEN>
    substitutions 파일에서 반드시 바뀌어야 한다.
 
    ```text
-   RECOMMENDATION_SERVICE_URL
+   RECOMMENDATION_SERVICE_GRPC_ADDR
+   RECOMMENDATION_SERVICE_GRPC_TLS
    CHATBOT_LLM_ENDPOINT_URL
    CHATBOT_LLM_MODEL
    ```
@@ -211,10 +214,11 @@ CHATBOT_VALIDATION_TARGET=<gateway-or-chatbot-grpc-target>:443
 CHATBOT_VALIDATION_AUTHORIZATION=Bearer <STAGING_TOKEN>
 CHATBOT_VALIDATION_USER_ID=<VALIDATION_USER_ID>
 CHATBOT_VALIDATION_SELECTED_BEVERAGE_ID=<STAGING_BEVERAGE_ID>
-RECOMMENDATION_SERVICE_URL=<RECOMMENDATION_GRPC_TARGET>
+RECOMMENDATION_SERVICE_GRPC_ADDR=recommendation-service-vcuepibcwq-du.a.run.app:443
+RECOMMENDATION_SERVICE_GRPC_TLS=true
 CHATBOT_DB_DSN=<OPERATOR_LOCAL_OR_CLOUD_SQL_DSN>
 CHATBOT_LLM_ENDPOINT_URL=<LLM_ENDPOINT>
-CHATBOT_LLM_MODEL=<MODEL_NAME>
+CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 HF_TOKEN=<TOKEN_IF_NEEDED>
 ```
 
@@ -271,7 +275,7 @@ Cloud SQL과 Redis는 이미 staging에 생성되어 있으므로 비용이 발�
 
 지금 사람이 해야 하는 핵심 일은 네 가지다.
 
-1. fine-tuned LLM endpoint와 model name을 확정한다.
+1. Hugging Face Inference Endpoint/TGI endpoint와 token을 확정한다.
 2. Cloud SQL 앱 유저와 secret 값을 안전하게 만든다.
 3. secret version과 non-secret env를 채운 뒤 Cloud Build deploy를 실행한다.
 4. gateway/auth/frontend 연결 전에 preflight, smoke, load, acceptance 검증을 통과시킨다.

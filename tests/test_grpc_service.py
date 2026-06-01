@@ -67,6 +67,7 @@ def _config() -> ChatbotConfig:
         auth_authorization_metadata_key="authorization",
         auth_service_url="",
         recommendation_service_url="recommendation:9090",
+        recommendation_service_grpc_tls=False,
         map_service_url="",
         llm_provider="none",
         llm_model="",

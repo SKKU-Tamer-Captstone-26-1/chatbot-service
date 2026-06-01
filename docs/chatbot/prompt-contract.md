@@ -6,8 +6,9 @@ This document defines how the chatbot constructs prompts for an open LLM provide
 
 ## Provider Direction
 
-Production uses a user-trained OpenLLM deployed on Hugging Face. See
-`model-strategy.md` for the model-selection, fine-tuning, and evaluation plan.
+MVP uses an open instruction model deployed on Hugging Face without training or
+fine-tuning. See `model-strategy.md` for the model-selection and evaluation
+plan.
 The first adapter targets Hugging Face Text Generation Inference or Inference
 Endpoints that expose an OpenAI-compatible `/v1/chat/completions` route.
 
@@ -16,7 +17,7 @@ Configuration:
 ```text
 CHATBOT_LLM_PROVIDER=huggingface_tgi
 CHATBOT_LLM_ENDPOINT_URL=https://<endpoint>/v1/chat/completions
-CHATBOT_LLM_MODEL=<model-id-or-endpoint-model-name>
+CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 CHATBOT_LLM_API_KEY_ENV=HF_TOKEN
 ```
 

@@ -47,8 +47,8 @@ def _check_validation_settings(config: ValidationConfig) -> dict[str, str]:
 
 def _check_runtime_settings(config: ValidationConfig) -> dict[str, str]:
     checks: dict[str, str] = {
-        "recommendation_service_url": _required(
-            "RECOMMENDATION_SERVICE_URL",
+        "recommendation_service_grpc_addr": _required(
+            "RECOMMENDATION_SERVICE_GRPC_ADDR",
             config.recommendation_service_url,
         )
     }

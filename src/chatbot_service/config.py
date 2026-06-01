@@ -14,6 +14,7 @@ class ChatbotConfig:
     auth_authorization_metadata_key: str
     auth_service_url: str
     recommendation_service_url: str
+    recommendation_service_grpc_tls: bool
     map_service_url: str
     llm_provider: str
     llm_model: str
@@ -51,6 +52,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def load_config() -> ChatbotConfig:
+    recommendation_service_url = _recommendation_service_target_from_env()
     return ChatbotConfig(
         service_addr=_service_addr_from_env(),
         auth_mode=os.getenv("CHATBOT_AUTH_MODE", "validate_token"),
@@ -60,7 +62,11 @@ def load_config() -> ChatbotConfig:
             "authorization",
         ),
         auth_service_url=os.getenv("AUTH_SERVICE_URL", ""),
-        recommendation_service_url=os.getenv("RECOMMENDATION_SERVICE_URL", ""),
+        recommendation_service_url=recommendation_service_url,
+        recommendation_service_grpc_tls=_env_bool(
+            "RECOMMENDATION_SERVICE_GRPC_TLS",
+            _recommendation_service_default_tls(recommendation_service_url),
+        ),
         map_service_url=os.getenv("MAP_SERVICE_URL", ""),
         llm_provider=os.getenv("CHATBOT_LLM_PROVIDER", "none"),
         llm_model=os.getenv("CHATBOT_LLM_MODEL", ""),
@@ -105,3 +111,15 @@ def _service_addr_from_env() -> str:
     if port:
         return f":{port}"
     return ":9100"
+
+
+def _recommendation_service_target_from_env() -> str:
+    return (
+        os.getenv("RECOMMENDATION_SERVICE_GRPC_ADDR", "").strip()
+        or os.getenv("RECOMMENDATION_SERVICE_URL", "").strip()
+    )
+
+
+def _recommendation_service_default_tls(target: str) -> bool:
+    target = target.strip()
+    return target.startswith("https://") or target.endswith(":443")

@@ -7,6 +7,9 @@ def test_load_config_defaults(monkeypatch):
         "PORT",
         "CHATBOT_AUTH_MODE",
         "CHATBOT_LLM_PROVIDER",
+        "RECOMMENDATION_SERVICE_GRPC_ADDR",
+        "RECOMMENDATION_SERVICE_URL",
+        "RECOMMENDATION_SERVICE_GRPC_TLS",
         "CHATBOT_LLM_AUTH_MODE",
         "CHATBOT_REQUIRE_GROUNDED_FACTS",
         "CHATBOT_CACHE_BACKEND",
@@ -29,6 +32,8 @@ def test_load_config_defaults(monkeypatch):
     assert config.auth_mode == "validate_token"
     assert config.auth_user_id_metadata_key == "x-user-id"
     assert config.auth_authorization_metadata_key == "authorization"
+    assert config.recommendation_service_url == ""
+    assert config.recommendation_service_grpc_tls is False
     assert config.llm_provider == "none"
     assert config.llm_auth_mode == "bearer_env"
     assert config.llm_api_key_env == "HF_TOKEN"
@@ -68,3 +73,14 @@ def test_boolean_config_accepts_false(monkeypatch):
     assert config.require_grounded_facts is False
     assert config.store_conversations is False
     assert config.async_conversation_persistence is False
+
+
+def test_recommendation_grpc_addr_and_tls_override_legacy_url(monkeypatch):
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_URL", "https://legacy.example.com:443")
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_GRPC_ADDR", "recommendation.example.com:443")
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_GRPC_TLS", "true")
+
+    config = load_config()
+
+    assert config.recommendation_service_url == "recommendation.example.com:443"
+    assert config.recommendation_service_grpc_tls is True

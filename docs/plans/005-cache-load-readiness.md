@@ -40,7 +40,7 @@ Staging fail-fast preflight is implemented:
   traffic.
 - Require Redis URL when Redis cache is enabled.
 - Require Postgres DSN when storage is enabled.
-- Require recommendation-service URL.
+- Require recommendation-service gRPC address.
 - Require LLM endpoint/model.
 - Require LLM API key only when auth mode is bearer-env.
 - Update `.env.example`, validation docs, and tests.

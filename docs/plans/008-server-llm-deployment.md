@@ -2,22 +2,23 @@
 
 ## Goal
 
-Run the fine-tuned response-generation model behind a backend endpoint.
+Run the MVP response-generation model behind a backend endpoint.
 
 ## Default Approach
 
-- Train or fine-tune outside chatbot-service.
-- Serve the selected checkpoint through an OpenAI-compatible
+- Do not train or fine-tune the open LLM for MVP.
+- Serve the selected base instruction model through an OpenAI-compatible
   `/v1/chat/completions` API.
-- Use Cloud Run GPU with vLLM/TGI, Vertex AI endpoint, or a private managed
-  Hugging Face/TGI endpoint depending on cost and operational constraints.
+- Use Hugging Face Inference Endpoint + TGI for the first deployment.
+- Keep recommendation-service as ranking, score, reason-code, and candidate
+  owner. The LLM only rewrites provided grounded facts into Korean prose.
 
 ## Runtime Contract
 
 ```text
 CHATBOT_LLM_PROVIDER=huggingface_tgi
 CHATBOT_LLM_ENDPOINT_URL=<openai-compatible-chat-completions-url>
-CHATBOT_LLM_MODEL=<model-or-endpoint-name>
+CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 CHATBOT_LLM_AUTH_MODE=none|bearer_env
 CHATBOT_LLM_API_KEY_ENV=<required only when bearer_env>
 ```
@@ -29,6 +30,8 @@ CHATBOT_LLM_API_KEY_ENV=<required only when bearer_env>
 - Remote secured endpoint support requires bearer token from env.
 - LLM timeout and max-token settings are configurable.
 - Prompt remains compact and fact-only.
+- Out-of-scope, no-evidence, and context-missing cases are blocked by policy
+  and verifier behavior, not by model fine-tuning.
 
 ## Acceptance Gate
 
@@ -39,8 +42,9 @@ CHATBOT_LLM_API_KEY_ENV=<required only when bearer_env>
 
 ## Current Status
 
-Provider abstraction exists. Auth-mode config and deployment target still need
-implementation and human choice.
+Provider abstraction exists. MVP model choice is
+`Qwen/Qwen2.5-7B-Instruct` served through Hugging Face Inference Endpoint/TGI.
+The actual endpoint URL and `HF_TOKEN` remain human-provided secrets.
 
 ## Next Step
 

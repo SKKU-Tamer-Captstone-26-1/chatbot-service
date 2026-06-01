@@ -33,6 +33,7 @@ class ValidationConfig:
     require_runtime_preflight: bool
     require_authorization: bool
     recommendation_service_url: str
+    recommendation_service_grpc_tls: bool
     store_conversations: bool
     db_dsn: str
     llm_provider: str
@@ -106,7 +107,12 @@ def load_validation_config(env: dict[str, str] | None = None) -> ValidationConfi
             "CHATBOT_VALIDATION_REQUIRE_AUTHORIZATION",
             True,
         ),
-        recommendation_service_url=source.get("RECOMMENDATION_SERVICE_URL", ""),
+        recommendation_service_url=_recommendation_service_target(source),
+        recommendation_service_grpc_tls=_env_bool(
+            source,
+            "RECOMMENDATION_SERVICE_GRPC_TLS",
+            _recommendation_service_default_tls(_recommendation_service_target(source)),
+        ),
         store_conversations=_env_bool(source, "CHATBOT_STORE_CONVERSATIONS", True),
         db_dsn=source.get("CHATBOT_DB_DSN", ""),
         llm_provider=source.get("CHATBOT_LLM_PROVIDER", "none"),
@@ -125,6 +131,18 @@ def _normalize_target(raw: str) -> tuple[str, bool]:
     if raw.startswith("http://"):
         return raw.removeprefix("http://"), False
     return raw, False
+
+
+def _recommendation_service_target(source: dict[str, str]) -> str:
+    return source.get("RECOMMENDATION_SERVICE_GRPC_ADDR", "").strip() or source.get(
+        "RECOMMENDATION_SERVICE_URL",
+        "",
+    ).strip()
+
+
+def _recommendation_service_default_tls(target: str) -> bool:
+    target = target.strip()
+    return target.startswith("https://") or target.endswith(":443")
 
 
 def _env_bool(source: dict[str, str], name: str, default: bool) -> bool:

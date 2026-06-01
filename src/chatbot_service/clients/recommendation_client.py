@@ -50,14 +50,15 @@ class GrpcRecommendationClient:
         self,
         target: str,
         *,
+        secure: bool | None = None,
         timeout_ms: int = 5000,
         recommendation_pb2: Any | None = None,
         recommendation_pb2_grpc: Any | None = None,
     ) -> None:
         if not target:
-            raise ValueError("RECOMMENDATION_SERVICE_URL is required")
+            raise ValueError("RECOMMENDATION_SERVICE_GRPC_ADDR is required")
         self._target = _channel_target(target)
-        self._secure = target.startswith("https://")
+        self._secure = _target_uses_tls(target) if secure is None else secure
         self._timeout_sec = timeout_ms / 1000
         self._recommendation_pb2 = recommendation_pb2
         self._recommendation_pb2_grpc = recommendation_pb2_grpc
@@ -66,7 +67,10 @@ class GrpcRecommendationClient:
 
     @classmethod
     def from_config(cls, config: ChatbotConfig) -> GrpcRecommendationClient:
-        return cls(config.recommendation_service_url)
+        return cls(
+            config.recommendation_service_url,
+            secure=config.recommendation_service_grpc_tls,
+        )
 
     async def close(self) -> None:
         if self._channel is not None:
@@ -193,6 +197,10 @@ def _channel_target(raw: str) -> str:
     if raw.startswith("http://"):
         return raw.removeprefix("http://")
     return raw
+
+
+def _target_uses_tls(raw: str) -> bool:
+    return raw.startswith("https://") or raw.endswith(":443")
 
 
 def _metadata(auth_metadata: dict[str, str]) -> list[tuple[str, str]]:

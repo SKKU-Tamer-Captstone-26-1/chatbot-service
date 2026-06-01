@@ -30,7 +30,8 @@ def test_validation_config_parses_target_metadata_and_load_settings():
             "CHATBOT_VALIDATION_REQUESTS": "750",
             "CHATBOT_VALIDATION_P95_THRESHOLD_MS": "1200",
             "CHATBOT_VALIDATION_CACHE_WARMUP_MIN_IMPROVEMENT_RATIO": "0.10",
-            "RECOMMENDATION_SERVICE_URL": "recommendation:9090",
+            "RECOMMENDATION_SERVICE_GRPC_ADDR": "recommendation.example.com:443",
+            "RECOMMENDATION_SERVICE_GRPC_TLS": "true",
             "CHATBOT_STORE_CONVERSATIONS": "true",
             "CHATBOT_DB_DSN": "postgres://chatbot:pass@localhost:5432/chatbot",
             "CHATBOT_CACHE_BACKEND": "redis",
@@ -60,7 +61,8 @@ def test_validation_config_parses_target_metadata_and_load_settings():
     assert config.require_redis_preflight is True
     assert config.require_runtime_preflight is True
     assert config.require_authorization is True
-    assert config.recommendation_service_url == "recommendation:9090"
+    assert config.recommendation_service_url == "recommendation.example.com:443"
+    assert config.recommendation_service_grpc_tls is True
     assert config.store_conversations is True
     assert config.db_dsn == "postgres://chatbot:pass@localhost:5432/chatbot"
     assert config.llm_provider == "huggingface_tgi"
@@ -87,7 +89,7 @@ def test_validation_config_allows_insecure_override_for_tls_terminated_proxy():
 def test_validation_cli_preflight_prints_result_and_exits_success(monkeypatch, capsys):
     monkeypatch.setenv("CHATBOT_VALIDATION_AUTHORIZATION", "Bearer token")
     monkeypatch.setenv("CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT", "false")
-    monkeypatch.setenv("RECOMMENDATION_SERVICE_URL", "recommendation:9090")
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_GRPC_ADDR", "recommendation:9090")
     monkeypatch.setenv("CHATBOT_STORE_CONVERSATIONS", "false")
     monkeypatch.setenv("CHATBOT_CACHE_BACKEND", "memory")
     monkeypatch.setenv("CHATBOT_LLM_PROVIDER", "huggingface_tgi")
@@ -332,8 +334,8 @@ async def test_preflight_fails_fast_for_missing_runtime_settings():
     result = await run_preflight_checks(config)
 
     assert result.passed is False
-    assert result.checks["recommendation_service_url"] == (
-        "failed: RECOMMENDATION_SERVICE_URL is required"
+    assert result.checks["recommendation_service_grpc_addr"] == (
+        "failed: RECOMMENDATION_SERVICE_GRPC_ADDR is required"
     )
     assert result.checks["postgres_dsn"] == "failed: CHATBOT_DB_DSN is required"
     assert result.checks["llm_provider"] == "failed: CHATBOT_LLM_PROVIDER is required for staging"
@@ -345,7 +347,7 @@ async def test_preflight_allows_local_llm_without_api_key_when_auth_none():
         {
             "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer token",
             "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
-            "RECOMMENDATION_SERVICE_URL": "recommendation:9090",
+            "RECOMMENDATION_SERVICE_GRPC_ADDR": "recommendation:9090",
             "CHATBOT_STORE_CONVERSATIONS": "false",
             "CHATBOT_CACHE_BACKEND": "memory",
             "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
@@ -368,7 +370,7 @@ async def test_preflight_requires_api_key_when_llm_auth_mode_is_bearer_env():
         {
             "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer token",
             "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
-            "RECOMMENDATION_SERVICE_URL": "recommendation:9090",
+            "RECOMMENDATION_SERVICE_GRPC_ADDR": "recommendation:9090",
             "CHATBOT_STORE_CONVERSATIONS": "false",
             "CHATBOT_CACHE_BACKEND": "memory",
             "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
@@ -391,7 +393,7 @@ async def test_preflight_rejects_placeholder_values():
         {
             "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer REPLACE_WITH_TEST_TOKEN",
             "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
-            "RECOMMENDATION_SERVICE_URL": "REPLACE_WITH_RECOMMENDATION_SERVICE_URL",
+            "RECOMMENDATION_SERVICE_GRPC_ADDR": "REPLACE_WITH_RECOMMENDATION_GRPC_ADDR",
             "CHATBOT_STORE_CONVERSATIONS": "false",
             "CHATBOT_CACHE_BACKEND": "memory",
             "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
@@ -407,8 +409,8 @@ async def test_preflight_rejects_placeholder_values():
     assert result.checks["validation_authorization"] == (
         "failed: CHATBOT_VALIDATION_AUTHORIZATION still has a placeholder value"
     )
-    assert result.checks["recommendation_service_url"] == (
-        "failed: RECOMMENDATION_SERVICE_URL still has a placeholder value"
+    assert result.checks["recommendation_service_grpc_addr"] == (
+        "failed: RECOMMENDATION_SERVICE_GRPC_ADDR still has a placeholder value"
     )
     assert result.checks["llm_endpoint_url"] == (
         "failed: CHATBOT_LLM_ENDPOINT_URL still has a placeholder value"

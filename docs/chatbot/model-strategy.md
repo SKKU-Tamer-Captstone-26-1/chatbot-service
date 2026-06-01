@@ -10,8 +10,9 @@ Korean.
 
 ## Core Decision
 
-Use a small or medium open-source LLM that is continued-pretrained and/or
-fine-tuned for ONTHEBLOCK chatbot responses, then deploy it on Hugging Face.
+For MVP, do not train or fine-tune the open LLM. Use a small or medium
+instruction model as a grounded response writer behind Hugging Face Inference
+Endpoint/TGI.
 
 The model should be selected with open LLM leaderboards, such as
 `https://onyx.app/open-llm-leaderboard`, as one input. Broad reasoning, coding,
@@ -30,6 +31,17 @@ The service domain is narrow:
 
 Because recommendation-service already provides ranked facts, the chatbot does
 not need a very large reasoning model or a large token budget for MVP.
+
+Initial MVP model:
+
+```text
+CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
+```
+
+Alternatives such as `Qwen/Qwen3-8B` or
+`meta-llama/Meta-Llama-3.1-8B-Instruct` can be evaluated later. The first
+deployment should optimize for stable short Korean answers, latency, and cost,
+not broad reasoning benchmarks.
 
 ## Responsibility Split
 
@@ -84,7 +96,9 @@ These values can change after latency and answer-quality evaluation.
 
 ## Training Data Direction
 
-Allowed future training/evaluation sources:
+Training is explicitly out of scope for MVP. After consent, retention, deletion,
+PII filtering, and train/eval policy are approved, future training/evaluation
+sources may include:
 
 - user message
 - assistant output
@@ -127,8 +141,8 @@ The Hugging Face token must come from environment variables only.
 
 ## Evaluation Plan
 
-Evaluate candidate models and fine-tuned checkpoints on ONTHEBLOCK-specific
-cases, not only public leaderboards.
+Evaluate candidate base models and future fine-tuned checkpoints on
+ONTHEBLOCK-specific cases, not only public leaderboards.
 
 Required evaluation sets:
 
@@ -160,7 +174,7 @@ Release gate:
    Face endpoint and compare outputs against the fixture policy.
 6. Store chatbot input/output and trace metadata in PostgreSQL, but block
    training use until consent and retention policy is approved.
-7. After you upload the model to Hugging Face, configure endpoint env vars and
-   run smoke tests against the real endpoint.
+7. Configure the Hugging Face Inference Endpoint/TGI env vars and run smoke
+   tests against the real endpoint.
 8. Compare candidate checkpoints using app-specific eval pass rate, latency,
    output length, refusal quality, and grounding violations.

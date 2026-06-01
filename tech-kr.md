@@ -253,7 +253,7 @@ multi-turn context가 필요할 때만 최근 N개 메시지나 rolling summary�
 - Redis를 production 필수로 할지 여부
 - profile/beverage/venue/prompt context TTL
 - venue location bucket precision
-- staging recommendation-service URL
+- staging recommendation-service gRPC 주소와 TLS 설정
 - staging auth metadata contract와 test token
 - staging PostgreSQL DSN
 - staging Redis/Memorystore endpoint

@@ -38,7 +38,8 @@ def test_cloudbuild_pipeline_runs_migrations_before_service_deploy():
     assert "--execute-now" in pipeline
     assert "--wait" in pipeline
     assert "--set-env-vars=" in pipeline
-    assert "_RECOMMENDATION_SERVICE_URL" in pipeline
+    assert "_RECOMMENDATION_SERVICE_GRPC_ADDR" in pipeline
+    assert "_RECOMMENDATION_SERVICE_GRPC_TLS" in pipeline
     assert "_CHATBOT_LLM_ENDPOINT_URL" in pipeline
     assert "_CHATBOT_LLM_MODEL" in pipeline
     assert "--set-secrets=" in pipeline
@@ -94,12 +95,16 @@ def test_build_substitutions_env_example_has_required_operator_values():
     assert "CLOUD_SQL_CONNECTION_NAME=" in template
     assert "SERVERLESS_VPC_CONNECTOR=" in template
     assert "AUTH_SERVICE_URL=REPLACE_WITH_AUTH_SERVICE_URL" in template
-    assert "RECOMMENDATION_SERVICE_URL=REPLACE_WITH_RECOMMENDATION_GRPC_TARGET" in template
+    assert (
+        "RECOMMENDATION_SERVICE_GRPC_ADDR=REPLACE_WITH_RECOMMENDATION_GRPC_ADDR"
+        in template
+    )
+    assert "RECOMMENDATION_SERVICE_GRPC_TLS=true" in template
     assert (
         "CHATBOT_LLM_ENDPOINT_URL=REPLACE_WITH_OPENAI_COMPATIBLE_CHAT_COMPLETIONS_URL"
         in template
     )
-    assert "CHATBOT_LLM_MODEL=REPLACE_WITH_STAGING_MODEL" in template
+    assert "CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct" in template
     assert "DB_DSN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
     assert "REDIS_URL_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
     assert "HF_TOKEN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template

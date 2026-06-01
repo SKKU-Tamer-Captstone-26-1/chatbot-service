@@ -79,6 +79,13 @@ def test_channel_target_strips_http_schemes():
     assert _channel_target("recommendation:9090") == "recommendation:9090"
 
 
+def test_recommendation_client_infers_tls_for_cloud_run_443():
+    client = GrpcRecommendationClient("recommendation-service.example.com:443")
+
+    assert client._target == "recommendation-service.example.com:443"
+    assert client._secure is True
+
+
 @pytest.mark.anyio
 async def test_grpc_recommendation_client_maps_beverage_request(monkeypatch):
     pb2, _ = _load_generated_modules()
@@ -92,6 +99,7 @@ async def test_grpc_recommendation_client_maps_beverage_request(monkeypatch):
     )
     client = GrpcRecommendationClient(
         "http://recommendation:9090",
+        secure=False,
         timeout_ms=1234,
         recommendation_pb2=pb2,
         recommendation_pb2_grpc=FakeRecommendationGrpc,
@@ -131,7 +139,8 @@ async def test_grpc_recommendation_client_maps_venue_and_event_requests(monkeypa
         lambda target, secure: FakeChannel(target, secure),
     )
     client = GrpcRecommendationClient(
-        "https://recommendation.example",
+        "recommendation.example:443",
+        secure=True,
         recommendation_pb2=pb2,
         recommendation_pb2_grpc=FakeRecommendationGrpc,
     )
