@@ -135,6 +135,22 @@ async def test_ask_chatbot_resolves_metadata_and_returns_proto_response():
 
 
 @pytest.mark.anyio
+async def test_ask_chatbot_does_not_trust_client_context_user_id():
+    pipeline = FakePipeline()
+    servicer, pb2 = _servicer(pipeline=pipeline)
+    request = pb2.AskChatbotRequest(message="내 취향에 맞는 술 추천해줘")
+    request.client_context.update({"user_id": "attacker_user"})
+
+    await servicer.AskChatbot(
+        request,
+        FakeContext(metadata=[("x-user-id", "trusted_user"), ("authorization", "Bearer token")]),
+    )
+
+    assert pipeline.caller.user_id == "trusted_user"
+    assert pipeline.request.client_context == {"user_id": "attacker_user"}
+
+
+@pytest.mark.anyio
 async def test_ask_chatbot_rejects_missing_authenticated_user_metadata():
     servicer, pb2 = _servicer()
 

@@ -143,24 +143,52 @@ python3 scripts/validate_staging.py load
 The gRPC service now implements `AskChatbot`, `GetConversation`, and
 `RecordChatbotFeedback`. Runtime dependencies are still externalized:
 
-- `RECOMMENDATION_SERVICE_URL` must point to the recommendation gRPC service.
+- `RECOMMENDATION_SERVICE_GRPC_ADDR` must point to the recommendation gRPC
+  service as `host:port`. For current staging use
+  `recommendation-service-vcuepibcwq-du.a.run.app:443` with
+  `RECOMMENDATION_SERVICE_GRPC_TLS=true`.
 - `CHATBOT_STORE_CONVERSATIONS=true` requires `CHATBOT_DB_DSN` and the migration
   above.
 - `CHATBOT_CACHE_BACKEND=redis` should point `CHATBOT_CACHE_REDIS_URL` to
   Redis/Memorystore for production cache sharing. `memory` is process-local.
 - `CHATBOT_ASYNC_CONVERSATION_PERSISTENCE=true` moves chatbot log writes behind
   a bounded queue so `AskChatbot` does not wait on every Postgres write.
-- `CHATBOT_LLM_PROVIDER=huggingface_tgi` requires a deployed Hugging Face/TGI
-  compatible chat-completions endpoint. Use `CHATBOT_LLM_AUTH_MODE=bearer_env`
-  with the API key named by `CHATBOT_LLM_API_KEY_ENV` for secured remote
-  endpoints, or `CHATBOT_LLM_AUTH_MODE=none` for local/private endpoints that do
-  not require bearer auth.
+- The chatbot calls an OpenAI-compatible chat-completions endpoint only after
+  recommendation-service returns grounded facts. Set
+  `CHATBOT_LLM_ENDPOINT_URL=https://<llm-cloud-run-url>/v1/chat/completions`,
+  `CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct`, and
+  `CHATBOT_LLM_AUTH_MODE=none` for a local/private endpoint. If the endpoint is
+  protected with a bearer token, set `CHATBOT_LLM_AUTH_MODE=bearer_env` and
+  `CHATBOT_LLM_API_KEY_ENV=HF_TOKEN`.
 - `chatbot-validate smoke/load` runs fail-fast staging preflight checks for
   validation metadata, recommendation-service URL, storage DSN, LLM endpoint,
   Redis, and conditional LLM API-key presence before sending traffic.
 
 Authenticated user identity is resolved from trusted gRPC metadata. Public
 chatbot requests must not include a trusted `user_id`.
+
+## Grounded Recommendation Flow
+
+For beverage recommendation questions, `ai-chatbot-service` stays an
+orchestration layer:
+
+```text
+AskChatbot
+  -> classify intent
+  -> resolve user from authenticated metadata
+  -> forward authorization metadata to recommendation-service
+  -> GetProfileStatus
+  -> GetBeverageRecommendations
+  -> build grounded recommendation context
+  -> call OpenAI-compatible LLM as Korean response writer only
+  -> verify/fallback
+  -> return answer + cards from recommendation-service results
+```
+
+The LLM never creates the candidate list. If the profile is missing, profile
+generation is pending, recommendation-service returns no candidates, or the LLM
+is unavailable/ungrounded, the service returns deterministic Korean fallback
+text and code-generated cards instead of asking the model to guess.
 
 ## GCP Staging
 

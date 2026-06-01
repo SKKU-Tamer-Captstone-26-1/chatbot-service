@@ -139,6 +139,10 @@ class RecommendationContextBuilder:
                 "profile_status": profile_status,
                 "profile_revision": profile_revision,
                 "beverage_recommendations": [_to_plain_dict(item) for item in recommendations],
+                "grounded_recommendation_context": _build_beverage_grounded_context(
+                    profile_status,
+                    recommendations,
+                ),
                 "used_sources": used_sources,
             },
             confidence=_max_score(recommendations),
@@ -191,6 +195,10 @@ class RecommendationContextBuilder:
                 "profile_status": profile_status,
                 "profile_revision": profile_revision,
                 "venue_recommendations": [_to_plain_dict(item) for item in recommendations],
+                "grounded_recommendation_context": _build_venue_grounded_context(
+                    profile_status,
+                    recommendations,
+                ),
                 "used_sources": used_sources,
             },
             confidence=_max_score(recommendations),
@@ -209,6 +217,80 @@ def _to_plain_dict(value: Any) -> dict[str, Any]:
             continue
         result[name] = attr
     return result
+
+
+def _build_beverage_grounded_context(
+    profile_status: str,
+    recommendations: list[Any],
+) -> dict[str, Any]:
+    return {
+        "user_profile_status": _user_visible_profile_status(profile_status),
+        "recommendations": [_beverage_grounded_item(item) for item in recommendations],
+    }
+
+
+def _build_venue_grounded_context(
+    profile_status: str,
+    recommendations: list[Any],
+) -> dict[str, Any]:
+    return {
+        "user_profile_status": _user_visible_profile_status(profile_status),
+        "recommendations": [_venue_grounded_item(item) for item in recommendations],
+    }
+
+
+def _beverage_grounded_item(item: Any) -> dict[str, Any]:
+    plain = _to_plain_dict(item)
+    metadata = plain.get("metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    return {
+        "recommendation_id": str(plain.get("result_id") or plain.get("recommendation_id") or ""),
+        "beverage_id": str(plain.get("beverage_id", "")),
+        "name": str(plain.get("name_ko") or plain.get("name_en") or plain.get("name") or ""),
+        "category": str(plain.get("category", "")),
+        "description": str(plain.get("description") or metadata.get("description") or ""),
+        "flavor_tags": list(plain.get("flavor_tags") or metadata.get("flavor_tags") or []),
+        "reason": str(plain.get("explanation") or plain.get("reason") or ""),
+        "reason_codes": list(plain.get("reason_codes", []) or []),
+        "price_range": str(plain.get("price_range") or metadata.get("price_range") or ""),
+        "store": None,
+    }
+
+
+def _venue_grounded_item(item: Any) -> dict[str, Any]:
+    plain = _to_plain_dict(item)
+    metadata = plain.get("metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    store = {
+        "place_id": str(plain.get("place_id", "")),
+        "name": str(plain.get("name", "")),
+        "place_type": str(plain.get("place_type", "")),
+        "address": str(plain.get("address", "")),
+        "distance_m": plain.get("distance_m"),
+        "price_krw": plain.get("price_krw"),
+        "availability_status": str(plain.get("availability_status", "")),
+        "freshness_status": str(plain.get("freshness_status", "")),
+    }
+    return {
+        "recommendation_id": str(plain.get("result_id") or plain.get("recommendation_id") or ""),
+        "beverage_id": str(plain.get("beverage_id", "")),
+        "name": str(plain.get("beverage_name") or plain.get("name") or ""),
+        "category": str(plain.get("category") or metadata.get("category") or ""),
+        "description": str(plain.get("description") or metadata.get("description") or ""),
+        "flavor_tags": list(plain.get("flavor_tags") or metadata.get("flavor_tags") or []),
+        "reason": str(plain.get("explanation") or plain.get("reason") or ""),
+        "reason_codes": list(plain.get("reason_codes", []) or []),
+        "price_range": str(plain.get("price_range") or metadata.get("price_range") or ""),
+        "store": store,
+    }
+
+
+def _user_visible_profile_status(profile_status: str) -> str:
+    if profile_status.startswith("PROFILE_STATUS_"):
+        return profile_status.removeprefix("PROFILE_STATUS_")
+    return profile_status
 
 
 def _max_score(items: list[Any]) -> float:

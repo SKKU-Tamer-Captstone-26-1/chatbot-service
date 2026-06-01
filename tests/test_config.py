@@ -35,7 +35,7 @@ def test_load_config_defaults(monkeypatch):
     assert config.recommendation_service_url == ""
     assert config.recommendation_service_grpc_tls is False
     assert config.llm_provider == "none"
-    assert config.llm_auth_mode == "bearer_env"
+    assert config.llm_auth_mode == "none"
     assert config.llm_api_key_env == "HF_TOKEN"
     assert config.llm_max_tokens == 512
     assert config.default_language == "ko"
@@ -84,3 +84,14 @@ def test_recommendation_grpc_addr_and_tls_override_legacy_url(monkeypatch):
 
     assert config.recommendation_service_url == "recommendation.example.com:443"
     assert config.recommendation_service_grpc_tls is True
+
+
+def test_llm_provider_defaults_to_openai_compatible_adapter_when_endpoint_is_set(monkeypatch):
+    monkeypatch.delenv("CHATBOT_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("CHATBOT_LLM_ENDPOINT_URL", "https://llm.example.com/v1/chat/completions")
+    monkeypatch.setenv("CHATBOT_LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+
+    config = load_config()
+
+    assert config.llm_provider == "huggingface_tgi"
+    assert config.llm_auth_mode == "none"

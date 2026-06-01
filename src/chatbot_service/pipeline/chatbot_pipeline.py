@@ -11,7 +11,7 @@ from chatbot_service.metrics import MetricsRecorder
 from chatbot_service.pipeline.context_builder import RecommendationContextBuilder
 from chatbot_service.pipeline.guardrails import Guardrails
 from chatbot_service.pipeline.intent_classifier import IntentClassifier
-from chatbot_service.pipeline.llm_adapter import LLMAdapter
+from chatbot_service.pipeline.llm_adapter import LLMAdapter, LLMGenerationError
 from chatbot_service.pipeline.prompt_builder import PromptBuilder
 from chatbot_service.pipeline.response_builder import ResponseBuilder
 from chatbot_service.pipeline.response_verifier import ResponseVerificationError, ResponseVerifier
@@ -63,26 +63,68 @@ class ChatbotPipeline:
 
             system_prompt = self._prompt_builder.build_system_prompt()
             context_json, context_hash = await self._build_context_json(context)
-            with self._metrics.timer("llm.call"):
+            llm_started_at = time.perf_counter()
+            llm_latency_sec = 0.0
+            llm_observed = False
+            try:
                 generated = await self._llm_adapter.generate(
                     system_prompt,
                     context_json,
                     request.message,
                 )
+            except LLMGenerationError:
+                llm_latency_sec = time.perf_counter() - llm_started_at
+                self._metrics.observe("llm.call", llm_latency_sec)
+                llm_observed = True
+                LOGGER.exception("LLM generation failed; using grounded fallback")
+                answer = self._response_builder.build_generation_fallback(
+                    intent,
+                    context,
+                    reason="LLM_UNAVAILABLE",
+                )
+                answer.prompt_context_hash = context_hash
+                status = answer.status.value
+                self._log_grounded_response(
+                    caller=caller,
+                    context=context,
+                    llm_latency_sec=llm_latency_sec,
+                    outcome="llm_unavailable_fallback",
+                )
+                await self._persist_if_configured(request, caller, answer)
+                return answer
+            finally:
+                if not llm_observed:
+                    llm_latency_sec = time.perf_counter() - llm_started_at
+                    self._metrics.observe("llm.call", llm_latency_sec)
             try:
                 verified = self._response_verifier.verify(generated, context)
             except ResponseVerificationError:
-                fallback = self._guardrails.enforce(intent, context)
-                if fallback is not None:
-                    fallback.prompt_context_hash = context_hash
-                    status = fallback.status.value
-                    await self._persist_if_configured(request, caller, fallback)
-                    return fallback
-                raise
+                LOGGER.warning("LLM response verification failed; using grounded fallback")
+                answer = self._response_builder.build_generation_fallback(
+                    intent,
+                    context,
+                    reason="LLM_UNGROUNDED",
+                )
+                answer.prompt_context_hash = context_hash
+                status = answer.status.value
+                self._log_grounded_response(
+                    caller=caller,
+                    context=context,
+                    llm_latency_sec=llm_latency_sec,
+                    outcome="verification_fallback",
+                )
+                await self._persist_if_configured(request, caller, answer)
+                return answer
 
             answer = self._response_builder.build_from_grounded_text(intent, verified, context)
             answer.prompt_context_hash = context_hash
             status = answer.status.value
+            self._log_grounded_response(
+                caller=caller,
+                context=context,
+                llm_latency_sec=llm_latency_sec,
+                outcome="llm_answer",
+            )
             await self._persist_if_configured(request, caller, answer)
             return answer
         finally:
@@ -183,6 +225,28 @@ class ChatbotPipeline:
                 "missing_facts": answer.missing_facts,
                 "profile_status": answer.profile_status,
                 "prompt_context_hash": answer.prompt_context_hash,
+            },
+        )
+
+    def _log_grounded_response(
+        self,
+        *,
+        caller: CallerContext,
+        context: object,
+        llm_latency_sec: float,
+        outcome: str,
+    ) -> None:
+        facts = getattr(context, "facts", {})
+        used_sources = facts.get("used_sources", {}) if isinstance(facts, dict) else {}
+        LOGGER.info(
+            "grounded chatbot response generated",
+            extra={
+                "outcome": outcome,
+                "user_id": caller.user_id,
+                "request_id": used_sources.get("recommendation_request_id", ""),
+                "beverage_result_ids": used_sources.get("beverage_result_ids", []),
+                "venue_result_ids": used_sources.get("venue_result_ids", []),
+                "llm_latency_ms": round(llm_latency_sec * 1000, 2),
             },
         )
 

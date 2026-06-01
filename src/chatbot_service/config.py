@@ -53,6 +53,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 def load_config() -> ChatbotConfig:
     recommendation_service_url = _recommendation_service_target_from_env()
+    llm_endpoint_url = os.getenv("CHATBOT_LLM_ENDPOINT_URL", "")
     return ChatbotConfig(
         service_addr=_service_addr_from_env(),
         auth_mode=os.getenv("CHATBOT_AUTH_MODE", "validate_token"),
@@ -68,10 +69,13 @@ def load_config() -> ChatbotConfig:
             _recommendation_service_default_tls(recommendation_service_url),
         ),
         map_service_url=os.getenv("MAP_SERVICE_URL", ""),
-        llm_provider=os.getenv("CHATBOT_LLM_PROVIDER", "none"),
+        llm_provider=os.getenv(
+            "CHATBOT_LLM_PROVIDER",
+            "huggingface_tgi" if llm_endpoint_url else "none",
+        ),
         llm_model=os.getenv("CHATBOT_LLM_MODEL", ""),
-        llm_endpoint_url=os.getenv("CHATBOT_LLM_ENDPOINT_URL", ""),
-        llm_auth_mode=os.getenv("CHATBOT_LLM_AUTH_MODE", "bearer_env"),
+        llm_endpoint_url=llm_endpoint_url,
+        llm_auth_mode=os.getenv("CHATBOT_LLM_AUTH_MODE", "none"),
         llm_api_key_env=os.getenv("CHATBOT_LLM_API_KEY_ENV", "HF_TOKEN"),
         llm_timeout_ms=int(os.getenv("CHATBOT_LLM_TIMEOUT_MS", "8000")),
         llm_temperature=float(os.getenv("CHATBOT_LLM_TEMPERATURE", "0.2")),

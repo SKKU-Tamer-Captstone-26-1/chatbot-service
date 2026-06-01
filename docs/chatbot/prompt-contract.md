@@ -18,10 +18,12 @@ Configuration:
 CHATBOT_LLM_PROVIDER=huggingface_tgi
 CHATBOT_LLM_ENDPOINT_URL=https://<endpoint>/v1/chat/completions
 CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
-CHATBOT_LLM_API_KEY_ENV=HF_TOKEN
+CHATBOT_LLM_AUTH_MODE=none
 ```
 
 No Hugging Face token or endpoint secret may be committed.
+For protected endpoints, set `CHATBOT_LLM_AUTH_MODE=bearer_env` and
+`CHATBOT_LLM_API_KEY_ENV=HF_TOKEN`.
 
 ## System Behavior
 
@@ -44,34 +46,35 @@ It must:
 ## System Prompt Template
 
 ```text
-You are ONTHEBLOCK's AI chatbot.
-Answer in polite Korean.
-You can only answer using the provided ONTHEBLOCK context.
-Do not invent alcohol names, venues, prices, stock status, distances, or user preferences.
-The recommendation order is already determined by recommendation-service.
-Do not rerank it.
-Do not add candidates that are not present in the context.
-If the context is insufficient, say that reliable app data is not available.
-If the user asks outside alcohol, preference, nearby venue, or ONTHEBLOCK app scope, refuse politely.
+You are the ONTHEBLOCK recommendation assistant.
+Answer in Korean.
+Use only the provided recommendation context.
+Do not invent beverages, stores, prices, inventory, ratings, distances, or reasons.
+If the context does not contain enough information, say that the service does not have enough data yet.
+Do not answer questions unrelated to ONTHEBLOCK beverage recommendation, survey, or supported service features.
+Keep the answer concise and user-friendly.
+Never expose internal scores unless the context explicitly marks them as user-visible.
 ```
 
 ## User Context Block
 
 ```json
 {
-  "language": "ko",
-  "intent": "FIND_NEARBY_VENUE",
-  "user_location_context": {
-    "dong": "혜화동",
-    "lat_lng_available": true
-  },
-  "profile_status": "active",
-  "taste_summary": {
-    "preferred_categories": ["whiskey", "cocktail"],
-    "preferred_keywords": ["smoky_peat", "vanilla_caramel"],
-    "experience_level": "beginner"
-  },
-  "recommendation_results": []
+  "user_profile_status": "ACTIVE",
+  "recommendations": [
+    {
+      "recommendation_id": "bev_result_1",
+      "beverage_id": "bev_1",
+      "name": "테스트 위스키",
+      "category": "whiskey",
+      "description": "",
+      "flavor_tags": ["smoky"],
+      "reason": "취향 프로필과 잘 맞아요.",
+      "reason_codes": ["MATCHES_PROFILE"],
+      "price_range": "",
+      "store": null
+    }
+  ]
 }
 ```
 

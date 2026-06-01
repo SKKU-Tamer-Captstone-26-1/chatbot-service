@@ -57,6 +57,7 @@ def load_validation_config(env: dict[str, str] | None = None) -> ValidationConfi
     raw_target = source.get("CHATBOT_VALIDATION_TARGET", "localhost:9100")
     target, secure = _normalize_target(raw_target)
     llm_api_key_env = source.get("CHATBOT_LLM_API_KEY_ENV", "HF_TOKEN")
+    llm_endpoint_url = source.get("CHATBOT_LLM_ENDPOINT_URL", "")
     return ValidationConfig(
         target=target,
         secure=_env_bool(source, "CHATBOT_VALIDATION_SECURE", secure),
@@ -115,10 +116,13 @@ def load_validation_config(env: dict[str, str] | None = None) -> ValidationConfi
         ),
         store_conversations=_env_bool(source, "CHATBOT_STORE_CONVERSATIONS", True),
         db_dsn=source.get("CHATBOT_DB_DSN", ""),
-        llm_provider=source.get("CHATBOT_LLM_PROVIDER", "none"),
+        llm_provider=source.get(
+            "CHATBOT_LLM_PROVIDER",
+            "huggingface_tgi" if llm_endpoint_url else "none",
+        ),
         llm_model=source.get("CHATBOT_LLM_MODEL", ""),
-        llm_endpoint_url=source.get("CHATBOT_LLM_ENDPOINT_URL", ""),
-        llm_auth_mode=source.get("CHATBOT_LLM_AUTH_MODE", "bearer_env"),
+        llm_endpoint_url=llm_endpoint_url,
+        llm_auth_mode=source.get("CHATBOT_LLM_AUTH_MODE", "none"),
         llm_api_key_env=llm_api_key_env,
         llm_api_key_available=bool(source.get(llm_api_key_env, "").strip()),
         service_metrics_path=source.get("CHATBOT_VALIDATION_SERVICE_METRICS_PATH", ""),

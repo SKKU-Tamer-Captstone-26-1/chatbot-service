@@ -24,6 +24,24 @@ class ResponseBuilder:
             missing_facts=context.missing_facts,
         )
 
+    def build_generation_fallback(
+        self,
+        intent: ChatbotIntent,
+        context: GroundedContext,
+        *,
+        reason: str,
+    ) -> ChatbotAnswer:
+        return ChatbotAnswer(
+            intent=intent,
+            answer=_fallback_answer(intent, context),
+            confidence=context.confidence,
+            status=ChatbotResponseStatus.ANSWERED,
+            profile_status=str(context.facts.get("profile_status", "PROFILE_STATUS_UNSPECIFIED")),
+            cards=self._build_cards(context),
+            used_sources=context.facts.get("used_sources", {}),
+            missing_facts=[],
+        )
+
     def _build_cards(self, context: GroundedContext) -> list[ChatbotCard]:
         cards: list[ChatbotCard] = []
         for item in context.facts.get("beverage_recommendations", []):
@@ -63,6 +81,39 @@ def _beverage_card(item: dict[str, Any]) -> ChatbotCard:
         metadata=dict(item.get("metadata", {}) or {}),
         detail={"beverage_recommendation": item},
     )
+
+
+def _fallback_answer(intent: ChatbotIntent, context: GroundedContext) -> str:
+    if intent == ChatbotIntent.RECOMMEND_BEVERAGE:
+        names = [
+            _beverage_title(item)
+            for item in context.facts.get("beverage_recommendations", [])
+        ]
+        names = [name for name in names if name]
+        if names:
+            return (
+                f"추천 서비스 결과 기준으로는 {names[0]}을 먼저 확인해 보세요. "
+                "아래 후보는 추천 서비스가 반환한 순서대로 보여드릴게요."
+            )
+    if intent in {ChatbotIntent.FIND_NEARBY_VENUE, ChatbotIntent.COMPARE_PURCHASE_OPTIONS}:
+        names = [
+            str(item.get("name") or item.get("place_id") or "")
+            for item in context.facts.get("venue_recommendations", [])
+        ]
+        names = [name for name in names if name]
+        if names:
+            return (
+                f"추천 서비스 결과 기준으로는 {names[0]}을 먼저 확인해 보세요. "
+                "아래 장소 정보는 추천 서비스가 반환한 데이터만 사용했어요."
+            )
+    return (
+        "추천 서비스 결과는 확인했지만, 지금은 자연어 답변을 생성하지 못했어요. "
+        "아래 카드의 추천 결과를 확인해 주세요."
+    )
+
+
+def _beverage_title(item: dict[str, Any]) -> str:
+    return str(item.get("name_ko") or item.get("name_en") or item.get("beverage_id") or "")
 
 
 def _venue_card(item: dict[str, Any]) -> ChatbotCard:

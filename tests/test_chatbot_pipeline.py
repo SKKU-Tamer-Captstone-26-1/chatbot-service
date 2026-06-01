@@ -9,6 +9,7 @@ from chatbot_service.pipeline.chatbot_pipeline import ChatbotPipeline
 from chatbot_service.pipeline.context_builder import RecommendationContextBuilder
 from chatbot_service.pipeline.guardrails import Guardrails
 from chatbot_service.pipeline.intent_classifier import IntentClassifier
+from chatbot_service.pipeline.llm_adapter import LLMGenerationError
 from chatbot_service.pipeline.prompt_builder import PromptBuilder
 from chatbot_service.pipeline.response_builder import ResponseBuilder
 from chatbot_service.pipeline.response_verifier import ResponseVerifier
@@ -16,10 +17,29 @@ from chatbot_service.storage.memory_repository import InMemoryConversationReposi
 
 
 class FakeRecommendationClient:
+    def __init__(
+        self,
+        *,
+        profile_status="PROFILE_STATUS_ACTIVE",
+        beverage_recommendations=None,
+    ):
+        self.profile_status = profile_status
+        self.beverage_recommendations = beverage_recommendations
+        self.profile_calls = []
+        self.beverage_calls = []
+        self.venue_calls = []
+
     async def get_profile_status(self, auth_metadata):
-        return {"status": "PROFILE_STATUS_ACTIVE", "profile_revision": 7}
+        self.profile_calls.append(auth_metadata)
+        return {"status": self.profile_status, "profile_revision": 7}
 
     async def get_beverage_recommendations(self, auth_metadata, **filters):
+        self.beverage_calls.append((auth_metadata, filters))
+        if self.beverage_recommendations is not None:
+            return {
+                "request_id": "bev_req_1",
+                "recommendations": self.beverage_recommendations,
+            }
         return {
             "request_id": "bev_req_1",
             "recommendations": [
@@ -51,6 +71,7 @@ class FakeRecommendationClient:
         }
 
     async def get_venue_recommendations(self, auth_metadata, lat, lng, **filters):
+        self.venue_calls.append((auth_metadata, lat, lng, filters))
         return {
             "request_id": "venue_req_1",
             "recommendations": [
@@ -108,10 +129,21 @@ class RecordingLLM:
         return "추천 서비스 결과 기준으로는 테스트 위스키가 가장 잘 맞아요."
 
 
-def _pipeline(llm, repository=None):
+class RaisingLLM:
+    def __init__(self):
+        self.calls = []
+
+    async def generate(self, system_prompt, context_json, user_message):
+        self.calls.append((system_prompt, context_json, user_message))
+        raise LLMGenerationError("LLM unavailable")
+
+
+def _pipeline(llm, repository=None, recommendation_client=None):
     return ChatbotPipeline(
         intent_classifier=IntentClassifier(),
-        context_builder=RecommendationContextBuilder(FakeRecommendationClient()),
+        context_builder=RecommendationContextBuilder(
+            recommendation_client or FakeRecommendationClient()
+        ),
         guardrails=Guardrails(),
         prompt_builder=PromptBuilder(),
         llm_adapter=llm,
@@ -125,9 +157,13 @@ def _pipeline(llm, repository=None):
 async def test_pipeline_uses_recommendation_candidates_for_cards():
     llm = RecordingLLM()
     repository = InMemoryConversationRepository()
-    answer = await _pipeline(llm, repository).ask(
+    recommendation_client = FakeRecommendationClient()
+    answer = await _pipeline(llm, repository, recommendation_client=recommendation_client).ask(
         ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
-        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer access-token"},
+        ),
     )
 
     assert answer.status == ChatbotResponseStatus.ANSWERED
@@ -136,6 +172,13 @@ async def test_pipeline_uses_recommendation_candidates_for_cards():
     assert answer.used_sources["beverage_recommendation_request_id"] == "bev_req_1"
     assert answer.used_sources["beverage_result_ids"] == ["bev_result_1", "bev_result_2"]
     assert len(llm.calls) == 1
+    assert '"user_profile_status": "ACTIVE"' in llm.calls[0][1]
+    assert '"recommendation_id": "bev_result_1"' in llm.calls[0][1]
+    assert '"name": "테스트 위스키"' in llm.calls[0][1]
+    assert recommendation_client.profile_calls[0]["authorization"] == "Bearer access-token"
+    auth_metadata, filters = recommendation_client.beverage_calls[0]
+    assert auth_metadata["authorization"] == "Bearer access-token"
+    assert filters["profile_revision"] == 7
     assert len(repository.messages) == 2
     assistant_message = repository.messages[answer.message_id]
     assert assistant_message["metadata"]["used_sources"]["beverage_result_ids"] == [
@@ -211,3 +254,74 @@ async def test_pipeline_uses_purchase_option_cards_for_comparison_sources():
     ] == ["venue_result_1", "venue_result_2"]
     assert answer.used_sources["venue_recommendation_request_id"] == "venue_req_1"
     assert answer.used_sources["venue_result_ids"] == ["venue_result_1", "venue_result_2"]
+
+
+@pytest.mark.anyio
+async def test_pipeline_returns_profile_fallback_without_llm_when_profile_missing():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient(profile_status="PROFILE_STATUS_MISSING")
+
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(
+            user_id="trusted_user",
+            metadata={"x-user-id": "trusted_user", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
+    assert answer.intent == "PROFILE_STATUS"
+    assert answer.profile_status == "PROFILE_STATUS_MISSING"
+    assert "추천 프로필" in answer.answer
+    assert answer.missing_facts == ["active_recommendation_profile"]
+    assert llm.calls == []
+    assert recommendation_client.beverage_calls == []
+
+
+@pytest.mark.anyio
+async def test_pipeline_returns_no_answer_when_recommendation_service_has_no_candidates():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient(beverage_recommendations=[])
+
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
+    assert answer.cards == []
+    assert answer.missing_facts == ["beverage_recommendation_candidates"]
+    assert llm.calls == []
+
+
+@pytest.mark.anyio
+async def test_pipeline_returns_grounded_cards_when_llm_is_unavailable():
+    llm = RaisingLLM()
+
+    answer = await _pipeline(llm).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    assert answer.status == ChatbotResponseStatus.ANSWERED
+    assert "테스트 위스키" in answer.answer
+    assert [card.title for card in answer.cards] == ["테스트 위스키", "테스트 진"]
+    assert answer.used_sources["beverage_result_ids"] == ["bev_result_1", "bev_result_2"]
+    assert len(llm.calls) == 1
+
+
+@pytest.mark.anyio
+async def test_pipeline_refuses_out_of_scope_without_recommendation_or_llm_calls():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(message="오늘 서울 날씨 알려줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    assert answer.status == ChatbotResponseStatus.REFUSED
+    assert answer.refused is True
+    assert answer.refusal_reason == "OUT_OF_SCOPE"
+    assert llm.calls == []
+    assert recommendation_client.profile_calls == []
