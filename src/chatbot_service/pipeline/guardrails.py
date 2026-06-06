@@ -44,6 +44,29 @@ class Guardrails:
                 used_sources=context.facts.get("used_sources", {}),
                 missing_facts=context.missing_facts,
             )
+        if "recommendation_service_unavailable" in context.missing_facts:
+            return ChatbotAnswer(
+                intent=ChatbotIntent.INSUFFICIENT_DATA,
+                answer="추천 데이터를 일시적으로 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+                confidence=1.0,
+                status=ChatbotResponseStatus.INSUFFICIENT_DATA,
+                refused=False,
+                refusal_reason="RECOMMENDATION_SERVICE_UNAVAILABLE",
+                missing_facts=context.missing_facts,
+            )
+        if _has_empty_recommendations(context):
+            return ChatbotAnswer(
+                intent=ChatbotIntent.INSUFFICIENT_DATA,
+                answer=(
+                    "아직 추천 후보가 충분하지 않아요. "
+                    "추천 데이터가 준비된 뒤 다시 시도해 주세요."
+                ),
+                confidence=1.0,
+                status=ChatbotResponseStatus.INSUFFICIENT_DATA,
+                refused=False,
+                refusal_reason="INSUFFICIENT_DATA",
+                missing_facts=context.missing_facts,
+            )
         if not context.has_evidence:
             return ChatbotAnswer(
                 intent=ChatbotIntent.INSUFFICIENT_DATA,
@@ -64,14 +87,24 @@ def _has_inactive_profile(context: GroundedContext) -> bool:
     return bool(profile_status) and profile_status not in {"PROFILE_STATUS_ACTIVE", "ACTIVE"}
 
 
+def _has_empty_recommendations(context: GroundedContext) -> bool:
+    return any(
+        fact in context.missing_facts
+        for fact in (
+            "beverage_recommendation_candidates",
+            "fresh_venue_recommendation_candidates",
+        )
+    )
+
+
 def _profile_status_answer(profile_status: str) -> str:
     if profile_status in {"PROFILE_STATUS_MISSING", "MISSING"}:
         return (
             "아직 추천 프로필이 준비되지 않았어요. "
-            "먼저 취향 설문을 완료하고 추천 프로필을 생성해 주세요."
+            "먼저 취향 설문을 완료하거나 설문 처리가 끝날 때까지 기다려 주세요."
         )
     if profile_status in {"PROFILE_STATUS_PENDING_GENERATION", "PENDING_GENERATION"}:
-        return "추천 프로필을 생성 중이에요. 잠시 후 다시 시도해 주세요."
+        return "추천 프로필을 생성 중이에요. 설문 처리가 끝난 뒤 다시 시도해 주세요."
     if profile_status in {"PROFILE_STATUS_STALE", "STALE"}:
         return "추천 프로필을 갱신해야 해요. 최신 추천 프로필이 준비되면 다시 추천해 드릴게요."
     if profile_status in {"PROFILE_STATUS_FAILED_GENERATION", "FAILED_GENERATION"}:

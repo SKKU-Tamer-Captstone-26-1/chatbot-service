@@ -1,5 +1,6 @@
 import pytest
 
+from chatbot_service.clients.recommendation_client import RecommendationClientError
 from chatbot_service.domain.schemas import (
     CallerContext,
     ChatbotRequest,
@@ -53,7 +54,15 @@ class FakeRecommendationClient:
                     "score": 0.91,
                     "reason_codes": ["MATCHES_PROFILE"],
                     "explanation": "취향 프로필과 잘 맞아요.",
-                    "metadata": {"source": "recommendation-service"},
+                    "metadata": {
+                        "source": {
+                            "catalog_key": "catalog:test-whisky",
+                            "price_min_krw": 15000,
+                            "price_max_krw": 25000,
+                            "price_observation_summary": "검증된 카탈로그 가격 관측값",
+                            "price_policy": "verified_krw_observations_not_live_truth",
+                        }
+                    },
                 },
                 {
                     "rank": 2,
@@ -138,6 +147,12 @@ class RaisingLLM:
         raise LLMGenerationError("LLM unavailable")
 
 
+class UnavailableRecommendationClient(FakeRecommendationClient):
+    async def get_profile_status(self, auth_metadata):
+        self.profile_calls.append(auth_metadata)
+        raise RecommendationClientError("unavailable")
+
+
 def _pipeline(llm, repository=None, recommendation_client=None):
     return ChatbotPipeline(
         intent_classifier=IntentClassifier(),
@@ -175,6 +190,9 @@ async def test_pipeline_uses_recommendation_candidates_for_cards():
     assert '"user_profile_status": "ACTIVE"' in llm.calls[0][1]
     assert '"recommendation_id": "bev_result_1"' in llm.calls[0][1]
     assert '"name": "테스트 위스키"' in llm.calls[0][1]
+    assert '"price_min_krw": 15000' in llm.calls[0][1]
+    assert '"price_policy": "verified_krw_observations_not_live_truth"' in llm.calls[0][1]
+    assert "검증된 가격 관측값과 사람들의 경험적 의견" in answer.answer
     assert recommendation_client.profile_calls[0]["authorization"] == "Bearer access-token"
     auth_metadata, filters = recommendation_client.beverage_calls[0]
     assert auth_metadata["authorization"] == "Bearer access-token"
@@ -291,6 +309,26 @@ async def test_pipeline_returns_no_answer_when_recommendation_service_has_no_can
     assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
     assert answer.cards == []
     assert answer.missing_facts == ["beverage_recommendation_candidates"]
+    assert llm.calls == []
+
+
+@pytest.mark.anyio
+async def test_pipeline_returns_deterministic_fallback_when_recommendation_service_unavailable():
+    llm = RecordingLLM()
+    recommendation_client = UnavailableRecommendationClient()
+
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
+    assert answer.refusal_reason == "RECOMMENDATION_SERVICE_UNAVAILABLE"
+    assert answer.missing_facts == ["recommendation_service_unavailable"]
+    assert "추천 데이터를 일시적으로 불러오지 못했어요" in answer.answer
     assert llm.calls == []
 
 

@@ -48,8 +48,10 @@ Copy `deploy/gcp/staging.substitutions.env.example` to the ignored
 `deploy/gcp/staging.substitutions.env` file, then fill it from Terraform outputs
 and pinned Secret Manager version numbers. This file also carries non-secret
 runtime values that must not remain as placeholders, such as
-`RECOMMENDATION_SERVICE_GRPC_ADDR`, `CHATBOT_LLM_ENDPOINT_URL`, and
-`CHATBOT_LLM_MODEL`:
+`RECOMMENDATION_SERVICE_GRPC_ADDR`,
+`RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE`,
+`RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE`,
+`CHATBOT_LLM_ENDPOINT_URL`, and `CHATBOT_LLM_MODEL`:
 
 ```bash
 chatbot-gcp-staging-readiness --phase predeploy
@@ -141,7 +143,7 @@ gcloud run deploy ai-chatbot-service-staging \
   --image "$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/ai-chatbot-service:$GIT_SHA" \
   --region "$REGION" \
   --service-account "$CHATBOT_STAGING_SERVICE_ACCOUNT" \
-  --set-env-vars "AUTH_SERVICE_URL=$AUTH_SERVICE_URL,RECOMMENDATION_SERVICE_GRPC_ADDR=$RECOMMENDATION_SERVICE_GRPC_ADDR,RECOMMENDATION_SERVICE_GRPC_TLS=true,CHATBOT_LLM_PROVIDER=huggingface_tgi,CHATBOT_LLM_MODEL=$CHATBOT_LLM_MODEL,CHATBOT_LLM_ENDPOINT_URL=$CHATBOT_LLM_ENDPOINT_URL,CHATBOT_LLM_AUTH_MODE=$CHATBOT_LLM_AUTH_MODE,CHATBOT_LLM_API_KEY_ENV=HF_TOKEN,CHATBOT_CACHE_BACKEND=redis,CHATBOT_STORE_CONVERSATIONS=true" \
+  --set-env-vars "AUTH_SERVICE_URL=$AUTH_SERVICE_URL,RECOMMENDATION_SERVICE_GRPC_ADDR=$RECOMMENDATION_SERVICE_GRPC_ADDR,RECOMMENDATION_SERVICE_GRPC_TLS=true,RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE=$RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE,RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE=$RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE,RECOMMENDATION_SERVICE_SERVERLESS_TOKEN_ENV=GOOGLE_ID_TOKEN,CHATBOT_LLM_PROVIDER=huggingface_tgi,CHATBOT_LLM_MODEL=$CHATBOT_LLM_MODEL,CHATBOT_LLM_ENDPOINT_URL=$CHATBOT_LLM_ENDPOINT_URL,CHATBOT_LLM_AUTH_MODE=$CHATBOT_LLM_AUTH_MODE,CHATBOT_LLM_API_KEY_ENV=HF_TOKEN,CHATBOT_CACHE_BACKEND=redis,CHATBOT_STORE_CONVERSATIONS=true" \
   --set-secrets "CHATBOT_DB_DSN=chatbot-staging-db-dsn:$DB_DSN_SECRET_VERSION,CHATBOT_CACHE_REDIS_URL=chatbot-staging-redis-url:$REDIS_URL_SECRET_VERSION,HF_TOKEN=chatbot-staging-hf-token:$HF_TOKEN_SECRET_VERSION" \
   --set-cloudsql-instances "$CLOUD_SQL_CONNECTION_NAME" \
   --vpc-connector "$SERVERLESS_VPC_CONNECTOR" \
@@ -157,6 +159,14 @@ publicly unless the auth and gateway path are intentionally configured.
 With `--no-allow-unauthenticated`, direct validation should target the staging
 gateway or another approved caller that can satisfy Cloud Run IAM and forward
 trusted chatbot metadata.
+
+When recommendation-service is private Cloud Run, keep the user token and
+server-to-server token separate. The client/gateway forwards only
+`authorization: Bearer <user_access_token>` to chatbot-service. Chatbot-service
+then forwards that user authorization to recommendation-service and adds its own
+`x-serverless-authorization: Bearer <google_id_token>` using the configured
+Cloud Run audience. Do not accept `x-serverless-authorization` from clients as
+trusted input.
 
 ## Run Migrations
 

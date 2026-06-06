@@ -9,6 +9,10 @@ Implementation should call gRPC RecommendationService APIs:
 from __future__ import annotations
 
 import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -45,6 +49,77 @@ class RecommendationClientError(RuntimeError):
     """Raised when recommendation-service cannot be called."""
 
 
+class ServerlessAuthTokenProvider(Protocol):
+    async def get_token(self) -> str: ...
+
+
+class NoopServerlessAuthTokenProvider:
+    async def get_token(self) -> str:
+        return ""
+
+
+class EnvServerlessAuthTokenProvider:
+    def __init__(self, env_name: str) -> None:
+        self._env_name = env_name
+
+    async def get_token(self) -> str:
+        import os
+
+        token = os.getenv(self._env_name, "").strip()
+        if not token:
+            raise RecommendationClientError(
+                f"{self._env_name} is required for recommendation serverless auth"
+            )
+        return token
+
+
+class MetadataServerlessAuthTokenProvider:
+    """Fetch a Google ID token from the Cloud Run/Compute metadata server."""
+
+    def __init__(self, audience: str, *, timeout_ms: int = 1000, ttl_sec: int = 3000) -> None:
+        if not audience:
+            raise ValueError("RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE is required")
+        self._audience = audience
+        self._timeout_sec = timeout_ms / 1000
+        self._ttl_sec = ttl_sec
+        self._token = ""
+        self._expires_at = 0.0
+
+    async def get_token(self) -> str:
+        import asyncio
+
+        now = time.time()
+        if self._token and now < self._expires_at:
+            return self._token
+        token = await asyncio.to_thread(self._fetch_token_sync)
+        self._token = token
+        self._expires_at = now + self._ttl_sec
+        return token
+
+    def _fetch_token_sync(self) -> str:
+        query = urllib.parse.urlencode({"audience": self._audience, "format": "full"})
+        request = urllib.request.Request(
+            f"http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?{query}",
+            headers={"Metadata-Flavor": "Google"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout_sec) as response:
+                return response.read().decode("utf-8").strip()
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise RecommendationClientError(
+                "failed to fetch recommendation-service Cloud Run ID token"
+            ) from exc
+
+
+class StaticServerlessAuthTokenProvider:
+    def __init__(self, token: str) -> None:
+        self._token = token
+
+    async def get_token(self) -> str:
+        return self._token
+
+
 class GrpcRecommendationClient:
     def __init__(
         self,
@@ -52,6 +127,7 @@ class GrpcRecommendationClient:
         *,
         secure: bool | None = None,
         timeout_ms: int = 5000,
+        serverless_auth_token_provider: ServerlessAuthTokenProvider | None = None,
         recommendation_pb2: Any | None = None,
         recommendation_pb2_grpc: Any | None = None,
     ) -> None:
@@ -60,6 +136,9 @@ class GrpcRecommendationClient:
         self._target = _channel_target(target)
         self._secure = _target_uses_tls(target) if secure is None else secure
         self._timeout_sec = timeout_ms / 1000
+        self._serverless_auth_token_provider = (
+            serverless_auth_token_provider or NoopServerlessAuthTokenProvider()
+        )
         self._recommendation_pb2 = recommendation_pb2
         self._recommendation_pb2_grpc = recommendation_pb2_grpc
         self._channel: Any | None = None
@@ -70,6 +149,7 @@ class GrpcRecommendationClient:
         return cls(
             config.recommendation_service_url,
             secure=config.recommendation_service_grpc_tls,
+            serverless_auth_token_provider=build_serverless_auth_token_provider(config),
         )
 
     async def close(self) -> None:
@@ -80,11 +160,16 @@ class GrpcRecommendationClient:
 
     async def get_profile_status(self, auth_metadata: dict[str, str]) -> Any:
         pb2, stub = self._modules_and_stub()
-        response = await stub.GetProfileStatus(
-            pb2.GetProfileStatusRequest(),
-            metadata=_metadata(auth_metadata),
-            timeout=self._timeout_sec,
-        )
+        try:
+            response = await stub.GetProfileStatus(
+                pb2.GetProfileStatusRequest(),
+                metadata=await self._metadata(auth_metadata),
+                timeout=self._timeout_sec,
+            )
+        except Exception as exc:
+            raise RecommendationClientError(
+                "recommendation-service GetProfileStatus failed"
+            ) from exc
         return _message_to_dict(response)
 
     async def get_beverage_recommendations(
@@ -93,19 +178,24 @@ class GrpcRecommendationClient:
         **filters: Any,
     ) -> Any:
         pb2, stub = self._modules_and_stub()
-        response = await stub.GetBeverageRecommendations(
-            pb2.GetBeverageRecommendationsRequest(
-                category=str(filters.get("category", "")),
-                limit=int(filters.get("limit") or 0),
-                budget_mode=_enum_value(
-                    pb2,
-                    str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
-                    "BUDGET_MODE_UNSPECIFIED",
+        try:
+            response = await stub.GetBeverageRecommendations(
+                pb2.GetBeverageRecommendationsRequest(
+                    category=str(filters.get("category", "")),
+                    limit=int(filters.get("limit") or 0),
+                    budget_mode=_enum_value(
+                        pb2,
+                        str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
+                        "BUDGET_MODE_UNSPECIFIED",
+                    ),
                 ),
-            ),
-            metadata=_metadata(auth_metadata),
-            timeout=self._timeout_sec,
-        )
+                metadata=await self._metadata(auth_metadata),
+                timeout=self._timeout_sec,
+            )
+        except Exception as exc:
+            raise RecommendationClientError(
+                "recommendation-service GetBeverageRecommendations failed"
+            ) from exc
         return _message_to_dict(response)
 
     async def get_venue_recommendations(
@@ -116,22 +206,27 @@ class GrpcRecommendationClient:
         **filters: Any,
     ) -> Any:
         pb2, stub = self._modules_and_stub()
-        response = await stub.GetVenueRecommendations(
-            pb2.GetVenueRecommendationsRequest(
-                selected_beverage_id=str(filters.get("selected_beverage_id", "")),
-                lat=float(lat),
-                lng=float(lng),
-                radius_m=int(filters.get("radius_m") or 0),
-                limit=int(filters.get("limit") or 0),
-                budget_mode=_enum_value(
-                    pb2,
-                    str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
-                    "BUDGET_MODE_UNSPECIFIED",
+        try:
+            response = await stub.GetVenueRecommendations(
+                pb2.GetVenueRecommendationsRequest(
+                    selected_beverage_id=str(filters.get("selected_beverage_id", "")),
+                    lat=float(lat),
+                    lng=float(lng),
+                    radius_m=int(filters.get("radius_m") or 0),
+                    limit=int(filters.get("limit") or 0),
+                    budget_mode=_enum_value(
+                        pb2,
+                        str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
+                        "BUDGET_MODE_UNSPECIFIED",
+                    ),
                 ),
-            ),
-            metadata=_metadata(auth_metadata),
-            timeout=self._timeout_sec,
-        )
+                metadata=await self._metadata(auth_metadata),
+                timeout=self._timeout_sec,
+            )
+        except Exception as exc:
+            raise RecommendationClientError(
+                "recommendation-service GetVenueRecommendations failed"
+            ) from exc
         return _message_to_dict(response)
 
     async def record_recommendation_event(
@@ -153,11 +248,16 @@ class GrpcRecommendationClient:
         metadata = event.get("metadata", {})
         if isinstance(metadata, dict):
             json_format.ParseDict(metadata, request.metadata)
-        response = await stub.RecordRecommendationEvent(
-            request,
-            metadata=_metadata(auth_metadata),
-            timeout=self._timeout_sec,
-        )
+        try:
+            response = await stub.RecordRecommendationEvent(
+                request,
+                metadata=await self._metadata(auth_metadata),
+                timeout=self._timeout_sec,
+            )
+        except Exception as exc:
+            raise RecommendationClientError(
+                "recommendation-service RecordRecommendationEvent failed"
+            ) from exc
         return _message_to_dict(response)
 
     def _modules_and_stub(self) -> tuple[Any, Any]:
@@ -168,6 +268,29 @@ class GrpcRecommendationClient:
         self._channel = _build_channel(self._target, self._secure)
         self._stub = self._recommendation_pb2_grpc.RecommendationServiceStub(self._channel)
         return self._recommendation_pb2, self._stub
+
+    async def _metadata(self, auth_metadata: dict[str, str]) -> list[tuple[str, str]]:
+        metadata = _trusted_forward_metadata(auth_metadata)
+        token = await self._serverless_auth_token_provider.get_token()
+        if token:
+            metadata["x-serverless-authorization"] = _bearer_token(token)
+        return _metadata(metadata)
+
+
+def build_serverless_auth_token_provider(config: ChatbotConfig) -> ServerlessAuthTokenProvider:
+    mode = config.recommendation_service_serverless_auth_mode.strip().lower().replace("-", "_")
+    if mode in {"", "none"}:
+        return NoopServerlessAuthTokenProvider()
+    if mode == "bearer_env":
+        return EnvServerlessAuthTokenProvider(config.recommendation_service_serverless_token_env)
+    if mode == "google_id_token":
+        return MetadataServerlessAuthTokenProvider(
+            config.recommendation_service_serverless_audience
+        )
+    raise ValueError(
+        "unsupported RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE: "
+        f"{config.recommendation_service_serverless_auth_mode}"
+    )
 
 
 def _load_generated_modules() -> tuple[Any, Any]:
@@ -205,6 +328,21 @@ def _target_uses_tls(raw: str) -> bool:
 
 def _metadata(auth_metadata: dict[str, str]) -> list[tuple[str, str]]:
     return [(str(key), str(value)) for key, value in auth_metadata.items()]
+
+
+def _trusted_forward_metadata(auth_metadata: dict[str, str]) -> dict[str, str]:
+    return {
+        str(key).lower(): str(value)
+        for key, value in auth_metadata.items()
+        if str(key).lower() != "x-serverless-authorization"
+    }
+
+
+def _bearer_token(token: str) -> str:
+    token = token.strip()
+    if token.lower().startswith("bearer "):
+        return token
+    return f"Bearer {token}"
 
 
 def _message_to_dict(message: Any) -> dict[str, Any]:

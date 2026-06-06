@@ -3,6 +3,7 @@ import pytest
 from chatbot_service.clients import recommendation_client as recommendation_client_module
 from chatbot_service.clients.recommendation_client import (
     GrpcRecommendationClient,
+    StaticServerlessAuthTokenProvider,
     _channel_target,
     _load_generated_modules,
 )
@@ -125,6 +126,40 @@ async def test_grpc_recommendation_client_maps_beverage_request(monkeypatch):
     assert response["request_id"] == "bev_req_1"
     assert response["profile_status"] == "PROFILE_STATUS_ACTIVE"
     assert response["recommendations"][0]["result_id"] == "result_1"
+
+
+@pytest.mark.anyio
+async def test_grpc_recommendation_client_adds_serverless_authorization(monkeypatch):
+    pb2, _ = _load_generated_modules()
+    FakeRecommendationStub.pb2 = pb2
+    FakeRecommendationStub.instances = []
+
+    monkeypatch.setattr(
+        recommendation_client_module,
+        "_build_channel",
+        lambda target, secure: FakeChannel(target, secure),
+    )
+    client = GrpcRecommendationClient(
+        "recommendation.example:443",
+        secure=True,
+        serverless_auth_token_provider=StaticServerlessAuthTokenProvider("google-id-token"),
+        recommendation_pb2=pb2,
+        recommendation_pb2_grpc=FakeRecommendationGrpc,
+    )
+
+    await client.get_profile_status(
+        {
+            "authorization": "Bearer user-token",
+            "x-serverless-authorization": "Bearer untrusted-client-token",
+        }
+    )
+
+    stub = FakeRecommendationStub.instances[0]
+    metadata = stub.calls[0][2]
+    assert metadata == [
+        ("authorization", "Bearer user-token"),
+        ("x-serverless-authorization", "Bearer google-id-token"),
+    ]
 
 
 @pytest.mark.anyio

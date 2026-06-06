@@ -40,6 +40,8 @@ def test_cloudbuild_pipeline_runs_migrations_before_service_deploy():
     assert "--set-env-vars=" in pipeline
     assert "_RECOMMENDATION_SERVICE_GRPC_ADDR" in pipeline
     assert "_RECOMMENDATION_SERVICE_GRPC_TLS" in pipeline
+    assert "_RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE" in pipeline
+    assert "_RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE" in pipeline
     assert "_CHATBOT_LLM_ENDPOINT_URL" in pipeline
     assert "_CHATBOT_LLM_MODEL" in pipeline
     assert "_CHATBOT_LLM_AUTH_MODE" in pipeline
@@ -102,6 +104,11 @@ def test_build_substitutions_env_example_has_required_operator_values():
         in template
     )
     assert "RECOMMENDATION_SERVICE_GRPC_TLS=true" in template
+    assert "RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE=google_id_token" in template
+    assert (
+        "RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE=REPLACE_WITH_RECOMMENDATION_CLOUD_RUN_AUDIENCE"
+        in template
+    )
     assert (
         "CHATBOT_LLM_ENDPOINT_URL=REPLACE_WITH_OPENAI_COMPATIBLE_CHAT_COMPLETIONS_URL"
         in template

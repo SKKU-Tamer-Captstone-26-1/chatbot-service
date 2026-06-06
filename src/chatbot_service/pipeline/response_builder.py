@@ -15,7 +15,7 @@ class ResponseBuilder:
         cards = self._build_cards(context)
         return ChatbotAnswer(
             intent=intent,
-            answer=answer,
+            answer=_with_required_warnings(answer, context),
             confidence=context.confidence,
             status=ChatbotResponseStatus.ANSWERED,
             profile_status=str(context.facts.get("profile_status", "PROFILE_STATUS_UNSPECIFIED")),
@@ -33,7 +33,7 @@ class ResponseBuilder:
     ) -> ChatbotAnswer:
         return ChatbotAnswer(
             intent=intent,
-            answer=_fallback_answer(intent, context),
+            answer=_with_required_warnings(_fallback_answer(intent, context), context),
             confidence=context.confidence,
             status=ChatbotResponseStatus.ANSWERED,
             profile_status=str(context.facts.get("profile_status", "PROFILE_STATUS_UNSPECIFIED")),
@@ -110,6 +110,15 @@ def _fallback_answer(intent: ChatbotIntent, context: GroundedContext) -> str:
         "추천 서비스 결과는 확인했지만, 지금은 자연어 답변을 생성하지 못했어요. "
         "아래 카드의 추천 결과를 확인해 주세요."
     )
+
+
+def _with_required_warnings(answer: str, context: GroundedContext) -> str:
+    text = answer.strip()
+    for warning in context.facts.get("required_warnings", []):
+        warning = str(warning).strip()
+        if warning and warning not in text:
+            text = f"{text}\n\n{warning}"
+    return text
 
 
 def _beverage_title(item: dict[str, Any]) -> str:

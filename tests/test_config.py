@@ -10,6 +10,9 @@ def test_load_config_defaults(monkeypatch):
         "RECOMMENDATION_SERVICE_GRPC_ADDR",
         "RECOMMENDATION_SERVICE_URL",
         "RECOMMENDATION_SERVICE_GRPC_TLS",
+        "RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE",
+        "RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE",
+        "RECOMMENDATION_SERVICE_SERVERLESS_TOKEN_ENV",
         "CHATBOT_LLM_AUTH_MODE",
         "CHATBOT_REQUIRE_GROUNDED_FACTS",
         "CHATBOT_CACHE_BACKEND",
@@ -34,6 +37,9 @@ def test_load_config_defaults(monkeypatch):
     assert config.auth_authorization_metadata_key == "authorization"
     assert config.recommendation_service_url == ""
     assert config.recommendation_service_grpc_tls is False
+    assert config.recommendation_service_serverless_auth_mode == "none"
+    assert config.recommendation_service_serverless_audience == ""
+    assert config.recommendation_service_serverless_token_env == "GOOGLE_ID_TOKEN"
     assert config.llm_provider == "none"
     assert config.llm_auth_mode == "none"
     assert config.llm_api_key_env == "HF_TOKEN"
@@ -84,6 +90,23 @@ def test_recommendation_grpc_addr_and_tls_override_legacy_url(monkeypatch):
 
     assert config.recommendation_service_url == "recommendation.example.com:443"
     assert config.recommendation_service_grpc_tls is True
+    assert config.recommendation_service_serverless_audience == "https://recommendation.example.com"
+
+
+def test_recommendation_serverless_auth_config(monkeypatch):
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_GRPC_ADDR", "recommendation.example.com:443")
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE", "google_id_token")
+    monkeypatch.setenv(
+        "RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE",
+        "https://custom-audience.example",
+    )
+    monkeypatch.setenv("RECOMMENDATION_SERVICE_SERVERLESS_TOKEN_ENV", "REC_ID_TOKEN")
+
+    config = load_config()
+
+    assert config.recommendation_service_serverless_auth_mode == "google_id_token"
+    assert config.recommendation_service_serverless_audience == "https://custom-audience.example"
+    assert config.recommendation_service_serverless_token_env == "REC_ID_TOKEN"
 
 
 def test_llm_provider_defaults_to_openai_compatible_adapter_when_endpoint_is_set(monkeypatch):

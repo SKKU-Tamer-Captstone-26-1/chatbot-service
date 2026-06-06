@@ -22,6 +22,8 @@
 - Call `GetVenueRecommendations`.
 - Convert results into chatbot cards.
 - Preserve recommendation request IDs, result IDs, ranks, reason codes, profile status, freshness, and availability.
+- Keep ranking as recommendation-service-owned rule-based/heuristic logic until
+  enough approved usage data exists for an ML ranking experiment.
 
 ## Phase 3: Guardrails and RAG Context
 
@@ -30,7 +32,7 @@
 - Implement no-evidence no-answer policy.
 - Implement out-of-scope refusal.
 - Implement prompt contract.
-- Use the Hugging Face/TGI-compatible adapter for the trained OpenLLM.
+- Use the Hugging Face/TGI-compatible adapter for a base OpenLLM response writer.
 - Keep prompt context compact because the model is a narrow response generator,
   not a large reasoning model.
 
@@ -38,11 +40,14 @@
 
 - Use open LLM leaderboards only to shortlist candidate base models.
 - Select the final base model using ONTHEBLOCK-specific evals.
-- Fine-tune or continued-pretrain externally for Korean grounded responses.
-- Upload the selected checkpoint to Hugging Face.
+- Do not fine-tune for the current MVP; the data is not sufficient yet.
+- Evaluate rule/reason-code quality, prompt quality, verifier behavior, and
+  Korean answer quality together.
 - Configure `CHATBOT_LLM_PROVIDER=huggingface_tgi`.
 - Run golden/no-answer/out-of-scope/ranking/tone evals against the endpoint.
 - Gate release on no invented place, price, flavor, drink, scent, inventory, or distance facts.
+- Revisit fine-tuning only after enough consented chatbot logs and feedback
+  labels exist.
 
 ## Phase 4: Conversation Storage
 

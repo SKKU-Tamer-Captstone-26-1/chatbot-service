@@ -4,15 +4,18 @@
 
 This document records the model direction for ONTHEBLOCK `ai-chatbot-service`.
 
-The chatbot LLM is not the recommendation engine. It is a narrow response
-generation model that explains already-grounded recommendation facts in polite
-Korean.
+The chatbot LLM is not the recommendation engine. Current product direction is
+rule-based recommendation plus RAG-grounded explanation: recommendation-service
+creates ranked facts with deterministic rules/heuristics, and the chatbot uses
+those facts to generate concise Korean prose.
 
 ## Core Decision
 
-For MVP, do not train or fine-tune the open LLM. Use a small or medium
-instruction model as a grounded response writer behind Hugging Face Inference
-Endpoint/TGI.
+For the current MVP direction, do not train or fine-tune the open LLM and do not
+build an ML ranking model. There is not enough real usage data yet to make an ML
+recommender defensible. Use deterministic rules/heuristics in
+recommendation-service and a small or medium instruction model as a grounded
+response writer behind Hugging Face Inference Endpoint/TGI.
 
 The model should be selected with open LLM leaderboards, such as
 `https://onyx.app/open-llm-leaderboard`, as one input. Broad reasoning, coding,
@@ -29,8 +32,8 @@ The service domain is narrow:
 - recommendation explanation
 - profile or insufficient-data explanation
 
-Because recommendation-service already provides ranked facts, the chatbot does
-not need a very large reasoning model or a large token budget for MVP.
+Because recommendation-service already provides ranked facts and reason codes,
+the chatbot does not need a very large reasoning model or a large token budget.
 
 Initial MVP model:
 
@@ -47,7 +50,7 @@ not broad reasoning benchmarks.
 
 | Component | Owns | Must Not Do |
 |---|---|---|
-| `recommendation-service` | Ranking, candidates, scores, reason codes, profile status, place/price/flavor/drink/scent facts | Generate user-facing prose |
+| `recommendation-service` | Rule-based/heuristic ranking, candidates, scores, reason codes, profile status, place/price/flavor/drink/scent facts | Generate user-facing prose |
 | `ai-chatbot-service` | Intent handling, guardrails, prompt/context assembly, storage, response cards, source tracing | Rank or invent recommendation facts |
 | Hugging Face OpenLLM | Polite Korean natural-language response from supplied facts | Invent facts, reorder candidates, create new recommendations |
 
@@ -96,9 +99,11 @@ These values can change after latency and answer-quality evaluation.
 
 ## Training Data Direction
 
-Training is explicitly out of scope for MVP. After consent, retention, deletion,
-PII filtering, and train/eval policy are approved, future training/evaluation
-sources may include:
+Training is explicitly out of scope for the current service direction. Store
+chatbot traces for evaluation, debugging, and future model improvement, but do
+not use them for training until enough real examples and policy approvals exist.
+After consent, retention, deletion, PII filtering, and train/eval policy are
+approved, future training/evaluation sources may include:
 
 - user message
 - assistant output
@@ -118,7 +123,7 @@ Do not train directly on:
 - canonical map/place/menu/inventory database rows
 - private data that is not needed for response generation
 
-Before model training from production logs, finalize:
+Before any model training from production logs, finalize:
 
 - user consent policy
 - retention period
@@ -141,8 +146,9 @@ The Hugging Face token must come from environment variables only.
 
 ## Evaluation Plan
 
-Evaluate candidate base models and future fine-tuned checkpoints on
-ONTHEBLOCK-specific cases, not only public leaderboards.
+Evaluate candidate base models, prompt versions, verifier behavior, and
+rule/reason-code outputs on ONTHEBLOCK-specific cases, not only public
+leaderboards.
 
 Required evaluation sets:
 
@@ -172,9 +178,11 @@ Release gate:
    Korean tone cases.
 5. Add an offline model-evaluation script that can call a configured Hugging
    Face endpoint and compare outputs against the fixture policy.
-6. Store chatbot input/output and trace metadata in PostgreSQL, but block
-   training use until consent and retention policy is approved.
+6. Store chatbot input/output and trace metadata in PostgreSQL for evaluation
+   and debugging, but block training use until data volume, consent, and
+   retention policy are approved.
 7. Configure the Hugging Face Inference Endpoint/TGI env vars and run smoke
    tests against the real endpoint.
-8. Compare candidate checkpoints using app-specific eval pass rate, latency,
-   output length, refusal quality, and grounding violations.
+8. Compare candidate base models and prompt/rule versions using app-specific
+   eval pass rate, latency, output length, refusal quality, and grounding
+   violations.

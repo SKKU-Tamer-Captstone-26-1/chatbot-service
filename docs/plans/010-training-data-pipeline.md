@@ -2,8 +2,13 @@
 
 ## Goal
 
-Convert approved chatbot logs into high-quality model improvement data without
-violating privacy or service boundaries.
+Convert approved chatbot logs into high-quality evaluation and future model
+improvement data without violating privacy or service boundaries.
+
+Current direction is not immediate fine-tuning. The service should first collect
+traceable examples for evaluation, rule improvement, prompt regression tests,
+and feedback analysis. ML training starts only after enough approved data
+exists.
 
 ## Required Policy Decisions
 
@@ -11,7 +16,7 @@ violating privacy or service boundaries.
 - Retention period.
 - User deletion/export process.
 - PII filtering rules.
-- Train/eval split rules.
+- Evaluation split rules first; train/eval split rules only for future ML work.
 - Human review requirements for generated training examples.
 
 ## Recommended Pipeline
@@ -20,9 +25,11 @@ violating privacy or service boundaries.
 chatbot PostgreSQL logs
   -> approved export job
   -> PII filtering/redaction
-  -> evaluation/train split
+  -> evaluation dataset and feedback analysis
+  -> rule/reason-code and prompt improvement loop
+  -> optional future train/eval split after policy and data volume are ready
   -> GCS or BigQuery dataset
-  -> offline fine-tuning job
+  -> optional offline fine-tuning job
   -> evaluation gate
   -> model registry/version
   -> staged endpoint rollout
@@ -40,13 +47,13 @@ chatbot PostgreSQL logs
 
 - Training data cannot include unapproved private data.
 - Every training example can be traced to source policy and consent state.
-- New checkpoint passes `009-evaluation-release-gates.md` before serving
-  production traffic.
+- New rule, prompt, verifier, or future checkpoint version passes
+  `009-evaluation-release-gates.md` before serving production traffic.
 
 ## Current Status
 
-Blocked on product/privacy policy. Do not implement export for training until
-policy is approved.
+Use for evaluation and feedback analysis only. Do not implement export for
+training until policy, data volume, labels, and deletion handling are approved.
 
 ## Next Step
 

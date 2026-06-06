@@ -18,7 +18,11 @@ class PromptBuilder:
             "recommendation, survey, or supported service features. Keep the answer "
             "concise and user-friendly. Never expose internal scores unless the context "
             "explicitly marks them as user-visible. Recommendation-service results are "
-            "already ranked; never rerank or add new candidates."
+            "already ranked; never rerank or add new candidates. If price_policy is "
+            "verified_krw_observations_not_live_truth, describe prices only as verified "
+            "KRW catalog price observations, not live store prices or guaranteed current "
+            "offers. Include every required warning from the context when discussing "
+            "price or experience-based recommendations."
         )
 
     def build_context_json(self, context: GroundedContext) -> str:

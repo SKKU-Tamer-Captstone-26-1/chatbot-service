@@ -5,9 +5,10 @@ implementation-ready steps. Follow the files in order unless a later step is
 explicitly marked as optional.
 
 Target architecture is GCP server-first. Android clients call backend services;
-recommendation-service owns ranking and facts; ai-chatbot-service owns
-orchestration, storage, grounding, and response formatting. On-device LLM is a
-later optimization after server production is stable.
+recommendation-service owns rule-based/heuristic ranking and facts;
+ai-chatbot-service owns orchestration, storage, grounding, and response
+formatting. On-device LLM is a later optimization after server production is
+stable.
 
 ## Sequence
 
@@ -20,11 +21,12 @@ later optimization after server production is stable.
 | 005 | `005-cache-load-readiness.md` | Redis cache, async persistence, and 500-user validation |
 | 006 | `006-gcp-staging.md` | Non-production GCP staging environment |
 | 007 | `007-frontend-chatbot-integration.md` | Flutter app integration with staged chatbot service |
-| 008 | `008-server-llm-deployment.md` | Fine-tuned model behind server inference endpoint |
+| 008 | `008-server-llm-deployment.md` | Base writer model behind server inference endpoint |
 | 009 | `009-evaluation-release-gates.md` | Grounding, ranking, tone, and load release gates |
-| 010 | `010-training-data-pipeline.md` | Approved training/evaluation data loop |
+| 010 | `010-training-data-pipeline.md` | Approved evaluation and future training data loop |
 | 011 | `011-production-launch.md` | Production rollout, monitoring, and rollback |
 | 012 | `012-on-device-llm.md` | Optional Android on-device LLM optimization |
+| 013 | `013-rag-rule-based-direction.md` | RAG + rule-based recommendation MVP direction |
 
 ## Non-Negotiable Rules
 

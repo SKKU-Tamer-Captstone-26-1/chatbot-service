@@ -61,7 +61,7 @@ data must obey these rules:
 | Venue recommendations | recommendation-service first, chatbot thin cache optional | Reuse nearby place candidates with freshness limits | 30 sec-3 min |
 | Prompt context | ai-chatbot-service | Avoid rebuilding identical grounded context | Same or shorter than source facts |
 | LLM response text | ai-chatbot-service optional and conservative | Reuse exact deterministic response only for exact same context hash | 30 sec-2 min |
-| Conversation writes | ai-chatbot-service | Move audit/training logs off the response latency path | Queue based |
+| Conversation writes | ai-chatbot-service | Move audit/evaluation logs off the response latency path | Queue based |
 
 TTL values must be finalized with recommendation/map freshness rules. Venue
 cache TTL should be shorter than beverage cache TTL because distance, inventory,

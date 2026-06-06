@@ -18,6 +18,7 @@ class ResponseVerifier:
         if not context.has_evidence:
             raise ResponseVerificationError("LLM answer cannot be used without evidence")
         _verify_numbers_are_grounded(text, context)
+        _verify_price_policy_language(text, context)
         _verify_recommendation_claim_mentions_returned_candidate(text, context)
         return text
 
@@ -55,6 +56,23 @@ def _verify_recommendation_claim_mentions_returned_candidate(
         return
     if any(token in text for token in ("추천", "잘 맞", "어울", "마셔", "구매", "방문")):
         raise ResponseVerificationError("LLM answer does not mention a returned candidate")
+
+
+def _verify_price_policy_language(text: str, context: GroundedContext) -> None:
+    if "verified_krw_observations_not_live_truth" not in str(context.facts):
+        return
+    prohibited_phrases = (
+        "현재 매장 가격은",
+        "실제 매장 가격은",
+        "실시간 가격",
+        "현재 판매가는",
+        "재고가 있습니다",
+        "판매 중입니다",
+        "보장",
+        "확정",
+    )
+    if any(phrase in text for phrase in prohibited_phrases):
+        raise ResponseVerificationError("LLM answer overstates verified catalog price metadata")
 
 
 def _candidate_names(context: GroundedContext) -> list[str]:

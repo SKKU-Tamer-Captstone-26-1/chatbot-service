@@ -21,6 +21,8 @@ def _valid_values() -> dict[str, str]:
         "AUTH_SERVICE_URL": "https://auth.example.com",
         "RECOMMENDATION_SERVICE_GRPC_ADDR": "recommendation.example.com:443",
         "RECOMMENDATION_SERVICE_GRPC_TLS": "true",
+        "RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE": "google_id_token",
+        "RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE": "https://recommendation.example.com",
         "CHATBOT_LLM_ENDPOINT_URL": "https://llm.example.com/v1/chat/completions",
         "CHATBOT_LLM_MODEL": "staging-chatbot",
         "CHATBOT_LLM_AUTH_MODE": "none",
@@ -43,6 +45,11 @@ def test_build_cloudbuild_submit_command_maps_substitutions():
     assert "_SERVICE_ACCOUNT=chatbot@test-project.iam.gserviceaccount.com" in joined
     assert "_RECOMMENDATION_SERVICE_GRPC_ADDR=recommendation.example.com:443" in joined
     assert "_RECOMMENDATION_SERVICE_GRPC_TLS=true" in joined
+    assert "_RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE=google_id_token" in joined
+    assert (
+        "_RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE=https://recommendation.example.com"
+        in joined
+    )
     assert "_CHATBOT_LLM_MODEL=staging-chatbot" in joined
     assert "_CHATBOT_LLM_AUTH_MODE=none" in joined
     assert "_DB_DSN_SECRET_VERSION=1" in joined

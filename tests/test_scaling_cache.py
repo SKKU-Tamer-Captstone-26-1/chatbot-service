@@ -270,7 +270,7 @@ async def test_async_conversation_repository_defers_writes_but_preserves_ids():
 
 
 @pytest.mark.anyio
-async def test_stale_venue_facts_return_insufficient_data_and_are_not_cached():
+async def test_stale_venue_facts_preserve_service_result_but_are_not_cached():
     class StaleVenueClient(CountingRecommendationClient):
         async def get_venue_recommendations(self, auth_metadata, lat, lng, **filters):
             self.venue_calls += 1
@@ -315,6 +315,6 @@ async def test_stale_venue_facts_return_insufficient_data_and_are_not_cached():
         limit=0,
     )
 
-    assert answer.status == "INSUFFICIENT_DATA"
-    assert answer.missing_facts == ["fresh_venue_recommendation_candidates"]
+    assert answer.status == "ANSWERED"
+    assert answer.cards[0].title == "오래된 장소"
     assert inner.venue_calls == 2

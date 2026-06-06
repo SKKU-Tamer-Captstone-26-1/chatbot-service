@@ -2,7 +2,8 @@
 
 ## Purpose
 
-This document defines the chatbot response structure for Flutter rendering and later training/logging.
+This document defines the chatbot response structure for Flutter rendering,
+logging, evaluation, and future training after policy approval.
 
 ## Top-Level Response
 

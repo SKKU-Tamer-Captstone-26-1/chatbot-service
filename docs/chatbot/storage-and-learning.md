@@ -2,11 +2,13 @@
 
 ## Purpose
 
-This document defines what chatbot conversation data may be stored and how it may later support improvement or training.
+This document defines what chatbot conversation data may be stored and how it
+may later support evaluation, rule improvement, prompt improvement, and future
+training after policy approval.
 
 ## Storage Decision
 
-MVP must store chatbot conversations because future learning and evaluation are
+MVP must store chatbot conversations because evaluation and future learning are
 planned. Storage is chatbot-owned PostgreSQL data only; it must not become
 canonical survey, recommendation, map, place, menu, inventory, or auth data.
 

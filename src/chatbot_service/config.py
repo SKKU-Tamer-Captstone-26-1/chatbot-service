@@ -15,6 +15,9 @@ class ChatbotConfig:
     auth_service_url: str
     recommendation_service_url: str
     recommendation_service_grpc_tls: bool
+    recommendation_service_serverless_auth_mode: str
+    recommendation_service_serverless_audience: str
+    recommendation_service_serverless_token_env: str
     map_service_url: str
     llm_provider: str
     llm_model: str
@@ -67,6 +70,18 @@ def load_config() -> ChatbotConfig:
         recommendation_service_grpc_tls=_env_bool(
             "RECOMMENDATION_SERVICE_GRPC_TLS",
             _recommendation_service_default_tls(recommendation_service_url),
+        ),
+        recommendation_service_serverless_auth_mode=os.getenv(
+            "RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE",
+            "none",
+        ),
+        recommendation_service_serverless_audience=os.getenv(
+            "RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE",
+            _recommendation_service_default_audience(recommendation_service_url),
+        ),
+        recommendation_service_serverless_token_env=os.getenv(
+            "RECOMMENDATION_SERVICE_SERVERLESS_TOKEN_ENV",
+            "GOOGLE_ID_TOKEN",
         ),
         map_service_url=os.getenv("MAP_SERVICE_URL", ""),
         llm_provider=os.getenv(
@@ -127,3 +142,15 @@ def _recommendation_service_target_from_env() -> str:
 def _recommendation_service_default_tls(target: str) -> bool:
     target = target.strip()
     return target.startswith("https://") or target.endswith(":443")
+
+
+def _recommendation_service_default_audience(target: str) -> str:
+    target = target.strip()
+    if not target:
+        return ""
+    if target.startswith("https://"):
+        target = target.removeprefix("https://")
+    elif target.startswith("http://"):
+        target = target.removeprefix("http://")
+    host = target.split("/", maxsplit=1)[0].split(":", maxsplit=1)[0]
+    return f"https://{host}" if host else ""

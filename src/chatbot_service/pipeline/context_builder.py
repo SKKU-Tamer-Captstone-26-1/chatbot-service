@@ -5,9 +5,17 @@ This module should not directly read survey DB or map DB.
 from dataclasses import dataclass, field
 from typing import Any
 
-from chatbot_service.clients.recommendation_client import RecommendationClient
+from chatbot_service.clients.recommendation_client import (
+    RecommendationClient,
+    RecommendationClientError,
+)
 from chatbot_service.domain.intents import ChatbotIntent
 from chatbot_service.domain.schemas import CallerContext, ChatbotRequest
+
+PRICE_EXPERIENCE_WARNING = (
+    "이 추천은 검증된 가격 관측값과 사람들의 경험적 의견을 바탕으로 만든 참고용 추천입니다. "
+    "실제 매장 가격, 재고, 판매 여부는 달라질 수 있습니다."
+)
 
 
 @dataclass
@@ -60,7 +68,13 @@ class RecommendationContextBuilder:
             return GroundedContext(intent=intent.value)
 
         auth_metadata = caller.metadata
-        profile = await self._recommendation_client.get_profile_status(auth_metadata)
+        try:
+            profile = await self._recommendation_client.get_profile_status(auth_metadata)
+        except RecommendationClientError:
+            return GroundedContext(
+                intent=intent.value,
+                missing_facts=["recommendation_service_unavailable"],
+            )
         profile_status = _status_name(_read_field(profile, "status"))
         profile_revision = int(_read_field(profile, "profile_revision", 0) or 0)
 
@@ -112,13 +126,19 @@ class RecommendationContextBuilder:
         profile_status: str,
         profile_revision: int,
     ) -> GroundedContext:
-        response = await self._recommendation_client.get_beverage_recommendations(
-            auth_metadata,
-            category=request.category,
-            limit=request.beverage_limit,
-            budget_mode=request.budget_mode,
-            profile_revision=profile_revision,
-        )
+        try:
+            response = await self._recommendation_client.get_beverage_recommendations(
+                auth_metadata,
+                category=request.category,
+                limit=request.beverage_limit,
+                budget_mode=request.budget_mode,
+                profile_revision=profile_revision,
+            )
+        except RecommendationClientError:
+            return GroundedContext(
+                intent=ChatbotIntent.RECOMMEND_BEVERAGE.value,
+                missing_facts=["recommendation_service_unavailable"],
+            )
         recommendations = _read_repeated(response, "recommendations")
         if not recommendations:
             return GroundedContext(
@@ -133,6 +153,7 @@ class RecommendationContextBuilder:
             beverage_request_id=request_id,
             beverage_recommendations=recommendations,
         )
+        required_warnings = _required_warnings(recommendations)
         return GroundedContext(
             intent=ChatbotIntent.RECOMMEND_BEVERAGE.value,
             facts={
@@ -142,7 +163,9 @@ class RecommendationContextBuilder:
                 "grounded_recommendation_context": _build_beverage_grounded_context(
                     profile_status,
                     recommendations,
+                    required_warnings,
                 ),
+                "required_warnings": required_warnings,
                 "used_sources": used_sources,
             },
             confidence=_max_score(recommendations),
@@ -164,18 +187,23 @@ class RecommendationContextBuilder:
         if missing:
             return GroundedContext(intent=intent.value, missing_facts=missing)
 
-        response = await self._recommendation_client.get_venue_recommendations(
-            auth_metadata,
-            selected_beverage_id=request.selected_beverage_id,
-            lat=request.lat,
-            lng=request.lng,
-            radius_m=request.radius_m,
-            limit=request.venue_limit,
-            budget_mode=request.budget_mode,
-            profile_revision=profile_revision,
-        )
+        try:
+            response = await self._recommendation_client.get_venue_recommendations(
+                auth_metadata,
+                selected_beverage_id=request.selected_beverage_id,
+                lat=request.lat,
+                lng=request.lng,
+                radius_m=request.radius_m,
+                limit=request.venue_limit,
+                budget_mode=request.budget_mode,
+                profile_revision=profile_revision,
+            )
+        except RecommendationClientError:
+            return GroundedContext(
+                intent=intent.value,
+                missing_facts=["recommendation_service_unavailable"],
+            )
         recommendations = _read_repeated(response, "recommendations")
-        recommendations = [item for item in recommendations if _venue_item_is_usable(item)]
         if not recommendations:
             return GroundedContext(
                 intent=intent.value,
@@ -222,10 +250,12 @@ def _to_plain_dict(value: Any) -> dict[str, Any]:
 def _build_beverage_grounded_context(
     profile_status: str,
     recommendations: list[Any],
+    required_warnings: list[str],
 ) -> dict[str, Any]:
     return {
         "user_profile_status": _user_visible_profile_status(profile_status),
         "recommendations": [_beverage_grounded_item(item) for item in recommendations],
+        "required_warnings": required_warnings,
     }
 
 
@@ -244,17 +274,32 @@ def _beverage_grounded_item(item: Any) -> dict[str, Any]:
     metadata = plain.get("metadata", {})
     if not isinstance(metadata, dict):
         metadata = {}
+    source = _source_metadata(metadata)
+    price_min_krw = _optional_int(source.get("price_min_krw"))
+    price_max_krw = _optional_int(source.get("price_max_krw"))
     return {
         "recommendation_id": str(plain.get("result_id") or plain.get("recommendation_id") or ""),
+        "rank": _optional_int(plain.get("rank")),
         "beverage_id": str(plain.get("beverage_id", "")),
+        "name_ko": str(plain.get("name_ko", "")),
+        "name_en": str(plain.get("name_en", "")),
         "name": str(plain.get("name_ko") or plain.get("name_en") or plain.get("name") or ""),
         "category": str(plain.get("category", "")),
+        "score": _optional_float(plain.get("score")),
+        "score_user_visible": False,
         "description": str(plain.get("description") or metadata.get("description") or ""),
         "flavor_tags": list(plain.get("flavor_tags") or metadata.get("flavor_tags") or []),
         "reason": str(plain.get("explanation") or plain.get("reason") or ""),
         "reason_codes": list(plain.get("reason_codes", []) or []),
-        "price_range": str(plain.get("price_range") or metadata.get("price_range") or ""),
+        "price_range": _price_range(price_min_krw, price_max_krw, metadata),
         "store": None,
+        "source": {
+            "catalog_key": str(source.get("catalog_key", "")),
+            "price_min_krw": price_min_krw,
+            "price_max_krw": price_max_krw,
+            "price_observation_summary": source.get("price_observation_summary", ""),
+            "price_policy": str(source.get("price_policy", "")),
+        },
     }
 
 
@@ -298,30 +343,59 @@ def _max_score(items: list[Any]) -> float:
     return max(scores, default=0.0)
 
 
-def _venue_item_is_usable(item: Any) -> bool:
-    freshness_status = str(_read_field(item, "freshness_status", "") or "")
-    availability_status = str(_read_field(item, "availability_status", "") or "")
-    metadata = _read_field(item, "metadata", {}) or {}
-    if freshness_status in {
-        "VENUE_FRESHNESS_STATUS_STALE",
-        "VENUE_FRESHNESS_STATUS_EXPIRED",
-        "STALE",
-        "EXPIRED",
-    }:
-        return False
-    if availability_status in {"VENUE_AVAILABILITY_STATUS_UNAVAILABLE", "UNAVAILABLE"}:
-        return False
-    if isinstance(metadata, dict):
-        for key in ("price_freshness_status", "inventory_freshness_status"):
-            value = str(metadata.get(key, "") or "")
-            if value in {
-                "STALE",
-                "EXPIRED",
-                "VENUE_FRESHNESS_STATUS_STALE",
-                "VENUE_FRESHNESS_STATUS_EXPIRED",
-            }:
-                return False
-    return True
+def _source_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    source = metadata.get("source", {})
+    if isinstance(source, dict):
+        return dict(source)
+    return {}
+
+
+def _required_warnings(recommendations: list[Any]) -> list[str]:
+    if any(_requires_price_or_experience_warning(item) for item in recommendations):
+        return [PRICE_EXPERIENCE_WARNING]
+    return []
+
+
+def _requires_price_or_experience_warning(item: Any) -> bool:
+    plain = _to_plain_dict(item)
+    metadata = plain.get("metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    source = _source_metadata(metadata)
+    if str(source.get("price_policy", "")) == "verified_krw_observations_not_live_truth":
+        return True
+    if source.get("price_min_krw") is not None or source.get("price_max_krw") is not None:
+        return True
+    reason_codes = [str(code).upper() for code in plain.get("reason_codes", []) or []]
+    return any("EXPERIENCE" in code or "OPINION" in code for code in reason_codes)
+
+
+def _price_range(
+    price_min_krw: int | None,
+    price_max_krw: int | None,
+    metadata: dict[str, Any],
+) -> str:
+    if price_min_krw is not None and price_max_krw is not None:
+        if price_min_krw == price_max_krw:
+            return f"{price_min_krw} KRW"
+        return f"{price_min_krw}-{price_max_krw} KRW"
+    if price_min_krw is not None:
+        return f"{price_min_krw} KRW+"
+    if price_max_krw is not None:
+        return f"up to {price_max_krw} KRW"
+    return str(metadata.get("price_range", ""))
+
+
+def _optional_int(value: Any) -> int | None:
+    if value in {None, ""}:
+        return None
+    return int(value)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value in {None, ""}:
+        return None
+    return float(value)
 
 
 def _build_used_sources(
