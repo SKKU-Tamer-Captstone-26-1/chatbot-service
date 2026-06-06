@@ -27,14 +27,14 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$BUILD_ID"
       - "."
 
   - id: "push-image"
     name: "gcr.io/cloud-builders/docker"
     args:
       - "push"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$BUILD_ID"
 
   - id: "run-migrations"
     name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
@@ -44,7 +44,7 @@ steps:
       - "jobs"
       - "deploy"
       - "${_MIGRATION_JOB_NAME}"
-      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$BUILD_ID"
       - "--region=${_REGION}"
       - "--service-account=${_SERVICE_ACCOUNT}"
       - "--set-secrets=CHATBOT_DB_DSN=chatbot-staging-db-dsn:${_DB_DSN_SECRET_VERSION}"
@@ -63,7 +63,7 @@ steps:
       - "run"
       - "deploy"
       - "${_SERVICE_NAME}"
-      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$BUILD_ID"
       - "--region=${_REGION}"
       - "--service-account=${_SERVICE_ACCOUNT}"
       - "--set-env-vars=CHATBOT_AUTH_MODE=validate_token,CHATBOT_AUTH_USER_ID_METADATA_KEY=x-user-id,CHATBOT_AUTH_AUTHORIZATION_METADATA_KEY=authorization,AUTH_SERVICE_URL=${_AUTH_SERVICE_URL},RECOMMENDATION_SERVICE_GRPC_ADDR=${_RECOMMENDATION_SERVICE_GRPC_ADDR},RECOMMENDATION_SERVICE_GRPC_TLS=${_RECOMMENDATION_SERVICE_GRPC_TLS},RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE=${_RECOMMENDATION_SERVICE_SERVERLESS_AUTH_MODE},RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE=${_RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE},RECOMMENDATION_SERVICE_SERVERLESS_TOKEN_ENV=GOOGLE_ID_TOKEN,CHATBOT_LLM_PROVIDER=huggingface_tgi,CHATBOT_LLM_MODEL=${_CHATBOT_LLM_MODEL},CHATBOT_LLM_ENDPOINT_URL=${_CHATBOT_LLM_ENDPOINT_URL},CHATBOT_LLM_AUTH_MODE=${_CHATBOT_LLM_AUTH_MODE},CHATBOT_LLM_API_KEY_ENV=HF_TOKEN,CHATBOT_LLM_TIMEOUT_MS=8000,CHATBOT_LLM_TEMPERATURE=0.2,CHATBOT_LLM_MAX_TOKENS=512,CHATBOT_DEFAULT_LANGUAGE=ko,CHATBOT_MAX_RETRIEVED_CANDIDATES=5,CHATBOT_MIN_CONFIDENCE=0.55,CHATBOT_REQUIRE_GROUNDED_FACTS=true,CHATBOT_CACHE_BACKEND=redis,CHATBOT_CACHE_PROFILE_STATUS_TTL_SEC=300,CHATBOT_CACHE_BEVERAGE_RECOMMENDATIONS_TTL_SEC=300,CHATBOT_CACHE_VENUE_RECOMMENDATIONS_TTL_SEC=120,CHATBOT_CACHE_PROMPT_CONTEXT_TTL_SEC=120,CHATBOT_CACHE_LOCATION_BUCKET_PRECISION=3,CHATBOT_STORE_CONVERSATIONS=true,CHATBOT_STORAGE_RETENTION_DAYS=365,CHATBOT_ASYNC_CONVERSATION_PERSISTENCE=true,CHATBOT_PERSISTENCE_QUEUE_MAX_SIZE=1000,CHATBOT_PERSISTENCE_RETRY_ATTEMPTS=3"
@@ -78,4 +78,4 @@ steps:
       - "--quiet"
 
 images:
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$SHORT_SHA"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/ai-chatbot-service:$BUILD_ID"
