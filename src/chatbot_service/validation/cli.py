@@ -7,6 +7,7 @@ from dataclasses import asdict
 
 from chatbot_service.validation.client import run_load_validation, run_smoke_validation
 from chatbot_service.validation.config import load_validation_config
+from chatbot_service.validation.evaluation import validate_evaluation_fixtures
 from chatbot_service.validation.preflight import run_preflight_checks
 from chatbot_service.validation.service_metrics import read_service_metrics
 from chatbot_service.validation.summary import (
@@ -21,7 +22,19 @@ def main(argv: list[str] | None = None) -> None:
     subparsers.add_parser("preflight", help="Run config and dependency preflight checks only")
     subparsers.add_parser("smoke", help="Run health, AskChatbot, conversation, and feedback checks")
     subparsers.add_parser("load", help="Run cold and warm AskChatbot load validation passes")
+    fixtures_parser = subparsers.add_parser(
+        "fixtures",
+        help="Validate local evaluation fixture coverage and schema",
+    )
+    fixtures_parser.add_argument("--evaluation-dir", default="evaluation")
     args = parser.parse_args(argv)
+
+    if args.command == "fixtures":
+        result = validate_evaluation_fixtures(args.evaluation_dir)
+        print(json.dumps({"fixtures": asdict(result)}, ensure_ascii=False, indent=2))
+        if not result.passed:
+            raise SystemExit(1)
+        return
 
     config = load_validation_config()
     preflight = asyncio.run(run_preflight_checks(config))

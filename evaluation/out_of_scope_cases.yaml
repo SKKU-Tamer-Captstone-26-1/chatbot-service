@@ -1,0 +1,33 @@
+- name: out_of_scope_stock_market
+  user_message: "오늘 주식 시장 어때?"
+  expected_intent: "CHATBOT_INTENT_OUT_OF_SCOPE"
+  expected_status: "CHATBOT_RESPONSE_STATUS_REFUSED"
+  expected_refused: true
+  expected_refusal_reason: "OUT_OF_SCOPE"
+  expected_answer_contains:
+    - "ONTHEBLOCK"
+  checks:
+    - "refusal"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
+    - "authorization"
+
+- name: out_of_scope_general_knowledge
+  user_message: "고려 시대 역사 알려줘"
+  expected_intent: "CHATBOT_INTENT_OUT_OF_SCOPE"
+  expected_status: "CHATBOT_RESPONSE_STATUS_REFUSED"
+  expected_refused: true
+  expected_refusal_reason: "OUT_OF_SCOPE"
+  expected_answer_contains:
+    - "술 추천"
+  checks:
+    - "refusal"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
+    - "authorization"

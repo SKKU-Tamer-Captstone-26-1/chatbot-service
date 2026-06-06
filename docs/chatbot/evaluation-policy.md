@@ -39,6 +39,11 @@ Create these sets:
    - 500 concurrent users do not cause full conversation-history reads
    - cache failures fall back to safe upstream calls or no-answer behavior
 
+7. `price_inventory_uncertainty_cases.yaml`
+   - verified KRW price observations are not described as live store prices
+   - unknown or stale inventory/price facts disclose uncertainty
+   - answers do not claim guaranteed stock, sale status, or current offers
+
 ## Model Evaluation Direction
 
 Open LLM leaderboards can help choose candidate base models, but production
@@ -84,6 +89,16 @@ consent, retention, deletion, and data filtering policies are finalized.
 | Ranking | LLM must not reorder recommendation-service results |
 | Korean tone | Response must be polite Korean |
 | Unknown handling | Missing data returns insufficient-data response |
+| Price/inventory uncertainty | Price and inventory facts are framed as observations or uncertain when required |
 | Cards | Recommendation answers include card-ready structured data |
 | Logging | Conversation and used_sources are stored when configured |
 | Scaling | Cache does not alter ranking and hot path avoids full history reads |
+
+Local fixture validation:
+
+```bash
+chatbot-validate fixtures
+```
+
+Runtime smoke/load validation also applies response policy checks for grounding,
+refusal shape, recommendation rank order, Korean tone, and uncertainty wording.

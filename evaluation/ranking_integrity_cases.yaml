@@ -1,30 +1,37 @@
-- name: recommend_beverage_basic
-  user_message: "내 취향에 맞는 술을 추천해줘"
+- name: beverage_rank_order_preserved
+  user_message: "내 취향에 맞는 술 세 개 추천해줘"
   expected_intent: "CHATBOT_INTENT_RECOMMEND_BEVERAGE"
   expected_status: "CHATBOT_RESPONSE_STATUS_ANSWERED"
   expected_card_types:
     - "CHATBOT_CARD_TYPE_BEVERAGE_RECOMMENDATION"
+  expected_result_ids:
+    - "bev_result_1"
+    - "bev_result_2"
+    - "bev_result_3"
   checks:
     - "grounding"
+    - "ranking_integrity"
     - "korean_tone"
-  max_answer_chars: 360
+  max_answer_chars: 420
   forbidden_answer_terms:
     - "used_sources"
     - "metadata"
     - "authorization"
 
-- name: find_nearby_venue_basic
-  user_message: "근처에 내 취향의 술 파는 곳 있어?"
-  lat: 37.123
-  lng: 127.123
+- name: venue_rank_order_preserved
+  user_message: "근처에서 살 수 있는 곳을 순서대로 알려줘"
   expected_intent: "CHATBOT_INTENT_FIND_NEARBY_VENUE"
   expected_status: "CHATBOT_RESPONSE_STATUS_ANSWERED"
   expected_card_types:
     - "CHATBOT_CARD_TYPE_VENUE_RECOMMENDATION"
+  expected_result_ids:
+    - "venue_result_1"
+    - "venue_result_2"
   checks:
     - "grounding"
+    - "ranking_integrity"
     - "korean_tone"
-  max_answer_chars: 360
+  max_answer_chars: 420
   forbidden_answer_terms:
     - "used_sources"
     - "metadata"

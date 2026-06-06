@@ -7,6 +7,7 @@ from typing import Any
 
 from chatbot_service.server import load_generated_chatbot_grpc
 from chatbot_service.validation.config import ValidationConfig
+from chatbot_service.validation.evaluation import assert_grounded_response
 from chatbot_service.validation.summary import ValidationRunSummary, summarize_run
 
 
@@ -192,66 +193,7 @@ def _load_request(chatbot_pb2: Any, config: ValidationConfig, index: int) -> Any
 
 
 def _assert_grounded_response(response: Any, chatbot_pb2: Any) -> None:
-    if response.status == chatbot_pb2.CHATBOT_RESPONSE_STATUS_ANSWERED:
-        if not response.cards:
-            raise ValueError("answered response had no cards")
-        _assert_answered_cards_grounded(response, chatbot_pb2)
-    elif response.status == chatbot_pb2.CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA:
-        if not response.missing_facts:
-            raise ValueError("insufficient-data response had no missing_facts")
-    elif response.status == chatbot_pb2.CHATBOT_RESPONSE_STATUS_REFUSED:
-        if not response.refused:
-            raise ValueError("refused response did not set refused=true")
-    else:
-        raise ValueError("response status was unspecified")
-
-
-def _assert_answered_cards_grounded(response: Any, chatbot_pb2: Any) -> None:
-    beverage_result_ids = set(response.used_sources.beverage_result_ids)
-    venue_result_ids = set(response.used_sources.venue_result_ids)
-    beverage_ranks: list[int] = []
-    venue_ranks: list[int] = []
-    for card in response.cards:
-        if card.card_type == chatbot_pb2.CHATBOT_CARD_TYPE_BEVERAGE_RECOMMENDATION:
-            if card.WhichOneof("detail") != "beverage_recommendation":
-                raise ValueError("beverage card had no beverage_recommendation detail")
-            detail = card.beverage_recommendation
-            _assert_result_id("beverage", detail.result_id, beverage_result_ids)
-            beverage_ranks.append(detail.rank)
-        elif card.card_type == chatbot_pb2.CHATBOT_CARD_TYPE_VENUE_RECOMMENDATION:
-            if card.WhichOneof("detail") != "venue_recommendation":
-                raise ValueError("venue card had no venue_recommendation detail")
-            detail = card.venue_recommendation
-            _assert_result_id("venue", detail.result_id, venue_result_ids)
-            venue_ranks.append(detail.rank)
-        elif card.card_type == chatbot_pb2.CHATBOT_CARD_TYPE_PURCHASE_OPTION:
-            if card.WhichOneof("detail") != "purchase_option":
-                raise ValueError("purchase card had no purchase_option detail")
-            detail = card.purchase_option
-            _assert_result_id("purchase", detail.result_id, venue_result_ids)
-        elif card.card_type == chatbot_pb2.CHATBOT_CARD_TYPE_COMPARISON:
-            if card.WhichOneof("detail") != "comparison":
-                raise ValueError("comparison card had no comparison detail")
-            for option in card.comparison.options:
-                _assert_result_id("comparison purchase", option.result_id, venue_result_ids)
-        elif card.card_type == chatbot_pb2.CHATBOT_CARD_TYPE_PROFILE_STATUS:
-            if card.WhichOneof("detail") != "profile_status":
-                raise ValueError("profile card had no profile_status detail")
-        else:
-            raise ValueError("answered response used unsupported card type")
-    if beverage_ranks and beverage_ranks != sorted(beverage_ranks):
-        raise ValueError("beverage recommendation card ranks were not ordered")
-    if venue_ranks and venue_ranks != sorted(venue_ranks):
-        raise ValueError("recommendation card ranks were not ordered")
-
-
-def _assert_result_id(kind: str, result_id: str, used_result_ids: set[str]) -> None:
-    if not result_id:
-        raise ValueError(f"{kind} card had no result_id")
-    if not used_result_ids:
-        raise ValueError(f"{kind} card had no used_sources result IDs")
-    if result_id not in used_result_ids:
-        raise ValueError(f"{kind} card result_id was not present in used_sources")
+    assert_grounded_response(response, chatbot_pb2)
 
 
 def _enum_value(module: Any, name: str, default: str) -> int:

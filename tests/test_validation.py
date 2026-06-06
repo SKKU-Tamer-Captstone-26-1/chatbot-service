@@ -174,6 +174,7 @@ def test_grounded_response_validation_accepts_safe_response_shapes():
     answered.used_sources.beverage_result_ids.append("bev_result_1")
     insufficient = pb2.AskChatbotResponse(
         status=pb2.CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA,
+        answer="위치 정보가 필요해요.",
         missing_facts=["detailed_location"],
     )
 

@@ -47,6 +47,10 @@ chatbot-service/
 - evaluation/
   - no_answer_cases.yaml
   - golden_cases.yaml
+  - out_of_scope_cases.yaml
+  - ranking_integrity_cases.yaml
+  - korean_tone_cases.yaml
+  - price_inventory_uncertainty_cases.yaml
 - scripts/
   - README.md
   - generate_proto.sh
@@ -127,6 +131,7 @@ chatbot-service
 Run non-production staging validation against an already-running gRPC service:
 
 ```bash
+chatbot-validate fixtures
 chatbot-validate preflight
 chatbot-validate smoke
 chatbot-validate load
@@ -140,7 +145,9 @@ python3 scripts/validate_staging.py smoke
 python3 scripts/validate_staging.py load
 ```
 
-The gRPC service now implements `AskChatbot`, `GetConversation`, and
+`chatbot-validate fixtures` validates local evaluation fixture coverage for
+grounding, refusal, ranking integrity, Korean tone, and price/inventory
+uncertainty. The gRPC service now implements `AskChatbot`, `GetConversation`, and
 `RecordChatbotFeedback`. Runtime dependencies are still externalized:
 
 - `RECOMMENDATION_SERVICE_GRPC_ADDR` must point to the recommendation gRPC

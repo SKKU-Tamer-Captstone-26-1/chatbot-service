@@ -159,6 +159,8 @@ Required evaluation sets:
 - `ranking_integrity_cases.yaml`: answers must preserve recommendation-service
   order and must not add candidates
 - `korean_tone_cases.yaml`: concise polite Korean output
+- `price_inventory_uncertainty_cases.yaml`: verified price observations and
+  uncertain inventory facts must not be described as live truth
 
 Release gate:
 
@@ -174,8 +176,8 @@ Release gate:
 1. Keep the current provider abstraction and Hugging Face/TGI-compatible adapter.
 2. Keep recommendation-service as the only ranking source.
 3. Make prompt context compact and deterministic.
-4. Add evaluation fixtures for grounded, no-answer, out-of-scope, ranking, and
-   Korean tone cases.
+4. Add evaluation fixtures for grounded, no-answer, out-of-scope, ranking,
+   Korean tone, and price/inventory uncertainty cases.
 5. Add an offline model-evaluation script that can call a configured Hugging
    Face endpoint and compare outputs against the fixture policy.
 6. Store chatbot input/output and trace metadata in PostgreSQL for evaluation

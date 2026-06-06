@@ -13,6 +13,7 @@ before production release.
   - out-of-scope cases
   - ranking integrity cases
   - Korean tone cases
+  - price/inventory uncertainty cases
   - load/cache cases
 - Offline evaluator can call the configured LLM endpoint.
 - Staging validation outputs latency and failure summaries.
@@ -30,8 +31,9 @@ before production release.
 
 ## Current Status
 
-Policy exists. Evaluation fixtures and offline evaluator still need
-implementation.
+Policy exists. Local evaluation fixtures and fixture validation are implemented.
+Offline evaluator expansion against a live or configured endpoint is still a
+future step.
 
 ## Next Step
 

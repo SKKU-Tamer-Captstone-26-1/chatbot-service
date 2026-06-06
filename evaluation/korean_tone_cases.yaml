@@ -1,0 +1,33 @@
+- name: concise_polite_recommendation_tone
+  user_message: "나한테 맞는 술 추천해줘"
+  expected_intent: "CHATBOT_INTENT_RECOMMEND_BEVERAGE"
+  expected_status: "CHATBOT_RESPONSE_STATUS_ANSWERED"
+  expected_card_types:
+    - "CHATBOT_CARD_TYPE_BEVERAGE_RECOMMENDATION"
+  checks:
+    - "grounding"
+    - "korean_tone"
+  max_answer_chars: 320
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
+    - "authorization"
+    - "prompt"
+    - "JWT"
+
+- name: concise_polite_refusal_tone
+  user_message: "아무거나 잡담해줘"
+  expected_intent: "CHATBOT_INTENT_OUT_OF_SCOPE"
+  expected_status: "CHATBOT_RESPONSE_STATUS_REFUSED"
+  expected_refused: true
+  expected_refusal_reason: "OUT_OF_SCOPE"
+  checks:
+    - "refusal"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
+    - "authorization"
+    - "prompt"
+    - "JWT"

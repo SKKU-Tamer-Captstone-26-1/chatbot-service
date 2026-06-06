@@ -1,17 +1,52 @@
 - name: missing_profile_beverage_recommendation
   user_message: "내 취향에 맞는 술 추천해줘"
-  mocked_profile_status: "missing"
-  expected_intent: "INSUFFICIENT_DATA"
-  expected_answer_contains: "추천 근거"
+  mocked_profile_status: "PROFILE_STATUS_MISSING"
+  expected_intent: "CHATBOT_INTENT_PROFILE_STATUS"
+  expected_status: "CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA"
+  expected_missing_facts:
+    - "active_recommendation_profile"
+  expected_answer_contains:
+    - "추천 프로필"
+  checks:
+    - "no_answer"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
 
 - name: no_location_nearby_venue
   user_message: "근처에 내 취향의 술 파는 곳 있어?"
-  mocked_profile_status: "active"
+  mocked_profile_status: "PROFILE_STATUS_ACTIVE"
   lat_lng: null
-  expected_intent: "INSUFFICIENT_DATA"
-  expected_answer_contains: "위치"
+  expected_intent: "CHATBOT_INTENT_INSUFFICIENT_DATA"
+  expected_status: "CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA"
+  expected_missing_facts:
+    - "detailed_location"
+  expected_answer_contains:
+    - "위치"
+  checks:
+    - "no_answer"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
 
-- name: out_of_scope_general_question
-  user_message: "오늘 주식 시장 어때?"
-  expected_intent: "OUT_OF_SCOPE"
-  expected_refused: true
+- name: empty_beverage_recommendations
+  user_message: "달달한 술 추천해줘"
+  mocked_profile_status: "PROFILE_STATUS_ACTIVE"
+  mocked_recommendations: "empty"
+  expected_intent: "CHATBOT_INTENT_INSUFFICIENT_DATA"
+  expected_status: "CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA"
+  expected_missing_facts:
+    - "beverage_recommendation_candidates"
+  expected_answer_contains:
+    - "추천 후보"
+  checks:
+    - "no_answer"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"

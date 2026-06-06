@@ -1,0 +1,39 @@
+- name: verified_price_observation_warning
+  user_message: "가격까지 고려해서 술 추천해줘"
+  expected_intent: "CHATBOT_INTENT_RECOMMEND_BEVERAGE"
+  expected_status: "CHATBOT_RESPONSE_STATUS_ANSWERED"
+  expected_card_types:
+    - "CHATBOT_CARD_TYPE_BEVERAGE_RECOMMENDATION"
+  required_answer_terms:
+    - "검증된 가격 관측값"
+    - "실제 매장 가격, 재고, 판매 여부는 달라질 수 있습니다"
+  forbidden_answer_terms:
+    - "실시간 가격"
+    - "현재 판매가는"
+    - "재고가 있습니다"
+    - "판매 중입니다"
+    - "확정"
+  checks:
+    - "grounding"
+    - "price_inventory_uncertainty"
+    - "korean_tone"
+  max_answer_chars: 520
+
+- name: uncertain_inventory_not_live_truth
+  user_message: "지금 재고 있는 곳 알려줘"
+  expected_intent: "CHATBOT_INTENT_FIND_NEARBY_VENUE"
+  expected_status: "CHATBOT_RESPONSE_STATUS_ANSWERED"
+  expected_card_types:
+    - "CHATBOT_CARD_TYPE_VENUE_RECOMMENDATION"
+  required_answer_terms:
+    - "확인"
+  forbidden_answer_terms:
+    - "재고가 있습니다"
+    - "판매 중입니다"
+    - "보장"
+    - "확정"
+  checks:
+    - "grounding"
+    - "price_inventory_uncertainty"
+    - "korean_tone"
+  max_answer_chars: 420
