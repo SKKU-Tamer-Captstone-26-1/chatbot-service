@@ -169,9 +169,11 @@ uncertainty. The gRPC service now implements `AskChatbot`, `GetConversation`, an
   recommendation-service returns grounded facts. Set
   `CHATBOT_LLM_ENDPOINT_URL=https://<llm-cloud-run-url>/v1/chat/completions`,
   `CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct`, and
-  `CHATBOT_LLM_AUTH_MODE=none` for a local/private endpoint. If the endpoint is
-  protected with a bearer token, set `CHATBOT_LLM_AUTH_MODE=bearer_env` and
-  `CHATBOT_LLM_API_KEY_ENV=HF_TOKEN`.
+  `CHATBOT_LLM_AUTH_MODE=none` for a local endpoint. If the endpoint is private
+  Cloud Run, set `CHATBOT_LLM_SERVERLESS_AUTH_MODE=google_id_token` and
+  `CHATBOT_LLM_SERVERLESS_AUDIENCE=https://<llm-cloud-run-url>`. If the model
+  endpoint itself is protected with a bearer token, set
+  `CHATBOT_LLM_AUTH_MODE=bearer_env` and `CHATBOT_LLM_API_KEY_ENV=HF_TOKEN`.
 - `chatbot-validate smoke/load` runs fail-fast staging preflight checks for
   validation metadata, recommendation-service URL, storage DSN, LLM endpoint,
   Redis, and conditional LLM API-key presence before sending traffic.

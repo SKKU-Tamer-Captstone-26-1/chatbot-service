@@ -7,7 +7,9 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Protocol
@@ -37,6 +39,9 @@ class HuggingFaceTGIConfig:
     timeout_ms: int
     temperature: float
     max_tokens: int
+    serverless_auth_mode: str = "none"
+    serverless_audience: str = ""
+    serverless_token_env: str = "GOOGLE_ID_TOKEN"
 
 
 class HuggingFaceTGIAdapter:
@@ -56,6 +61,9 @@ class HuggingFaceTGIAdapter:
                 timeout_ms=config.llm_timeout_ms,
                 temperature=config.llm_temperature,
                 max_tokens=config.llm_max_tokens,
+                serverless_auth_mode=config.llm_serverless_auth_mode,
+                serverless_audience=config.llm_serverless_audience,
+                serverless_token_env=config.llm_serverless_token_env,
             )
         )
 
@@ -98,6 +106,23 @@ class HuggingFaceTGIAdapter:
             headers["Authorization"] = f"Bearer {api_key}"
         elif auth_mode not in {"", "none"}:
             raise LLMGenerationError(f"Unsupported CHATBOT_LLM_AUTH_MODE: {self._config.auth_mode}")
+
+        serverless_auth_mode = self._config.serverless_auth_mode.strip().lower().replace("-", "_")
+        if serverless_auth_mode == "env":
+            token = os.getenv(self._config.serverless_token_env, "").strip()
+            if not token:
+                raise LLMGenerationError(
+                    f"{self._config.serverless_token_env} is required for LLM serverless auth"
+                )
+            headers["X-Serverless-Authorization"] = f"Bearer {token}"
+        elif serverless_auth_mode == "google_id_token":
+            token = _fetch_google_id_token(self._config.serverless_audience)
+            headers["X-Serverless-Authorization"] = f"Bearer {token}"
+        elif serverless_auth_mode not in {"", "none"}:
+            raise LLMGenerationError(
+                "Unsupported CHATBOT_LLM_SERVERLESS_AUTH_MODE: "
+                f"{self._config.serverless_auth_mode}"
+            )
 
         request = urllib.request.Request(
             self._config.endpoint_url,
@@ -145,3 +170,31 @@ def _extract_chat_completion_text(payload: dict[str, object]) -> str:
     if isinstance(text, str):
         return text.strip()
     return ""
+
+
+_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
+
+
+def _fetch_google_id_token(audience: str, *, timeout_sec: float = 1.0) -> str:
+    if not audience:
+        raise LLMGenerationError("CHATBOT_LLM_SERVERLESS_AUDIENCE is required")
+    now = time.time()
+    cached = _TOKEN_CACHE.get(audience)
+    if cached is not None and now < cached[1]:
+        return cached[0]
+
+    query = urllib.parse.urlencode({"audience": audience, "format": "full"})
+    request = urllib.request.Request(
+        f"http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?{query}",
+        headers={"Metadata-Flavor": "Google"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_sec) as response:
+            token = response.read().decode("utf-8").strip()
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise LLMGenerationError("failed to fetch LLM Cloud Run ID token") from exc
+    if not token:
+        raise LLMGenerationError("metadata server returned empty LLM Cloud Run ID token")
+    _TOKEN_CACHE[audience] = (token, now + 3000)
+    return token

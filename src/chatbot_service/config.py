@@ -24,6 +24,9 @@ class ChatbotConfig:
     llm_endpoint_url: str
     llm_auth_mode: str
     llm_api_key_env: str
+    llm_serverless_auth_mode: str
+    llm_serverless_audience: str
+    llm_serverless_token_env: str
     llm_timeout_ms: int
     llm_temperature: float
     llm_max_tokens: int
@@ -92,6 +95,15 @@ def load_config() -> ChatbotConfig:
         llm_endpoint_url=llm_endpoint_url,
         llm_auth_mode=os.getenv("CHATBOT_LLM_AUTH_MODE", "none"),
         llm_api_key_env=os.getenv("CHATBOT_LLM_API_KEY_ENV", "HF_TOKEN"),
+        llm_serverless_auth_mode=os.getenv("CHATBOT_LLM_SERVERLESS_AUTH_MODE", "none"),
+        llm_serverless_audience=os.getenv(
+            "CHATBOT_LLM_SERVERLESS_AUDIENCE",
+            _http_endpoint_default_audience(llm_endpoint_url),
+        ),
+        llm_serverless_token_env=os.getenv(
+            "CHATBOT_LLM_SERVERLESS_TOKEN_ENV",
+            "GOOGLE_ID_TOKEN",
+        ),
         llm_timeout_ms=int(os.getenv("CHATBOT_LLM_TIMEOUT_MS", "8000")),
         llm_temperature=float(os.getenv("CHATBOT_LLM_TEMPERATURE", "0.2")),
         llm_max_tokens=int(os.getenv("CHATBOT_LLM_MAX_TOKENS", "512")),
@@ -154,3 +166,18 @@ def _recommendation_service_default_audience(target: str) -> str:
         target = target.removeprefix("http://")
     host = target.split("/", maxsplit=1)[0].split(":", maxsplit=1)[0]
     return f"https://{host}" if host else ""
+
+
+def _http_endpoint_default_audience(endpoint_url: str) -> str:
+    endpoint_url = endpoint_url.strip()
+    if not endpoint_url:
+        return ""
+    if endpoint_url.startswith("https://"):
+        endpoint_url = endpoint_url.removeprefix("https://")
+        host = endpoint_url.split("/", maxsplit=1)[0]
+        return f"https://{host}" if host else ""
+    if endpoint_url.startswith("http://"):
+        endpoint_url = endpoint_url.removeprefix("http://")
+        host = endpoint_url.split("/", maxsplit=1)[0]
+        return f"http://{host}" if host else ""
+    return ""

@@ -45,6 +45,8 @@ def test_cloudbuild_pipeline_runs_migrations_before_service_deploy():
     assert "_CHATBOT_LLM_ENDPOINT_URL" in pipeline
     assert "_CHATBOT_LLM_MODEL" in pipeline
     assert "_CHATBOT_LLM_AUTH_MODE" in pipeline
+    assert "_CHATBOT_LLM_SERVERLESS_AUTH_MODE" in pipeline
+    assert "_CHATBOT_LLM_SERVERLESS_AUDIENCE" in pipeline
     assert "--set-secrets=" in pipeline
     assert "--use-http2" in pipeline
     assert ":latest" not in pipeline
@@ -115,6 +117,11 @@ def test_build_substitutions_env_example_has_required_operator_values():
     )
     assert "CHATBOT_LLM_MODEL=Qwen/Qwen2.5-7B-Instruct" in template
     assert "CHATBOT_LLM_AUTH_MODE=none" in template
+    assert "CHATBOT_LLM_SERVERLESS_AUTH_MODE=none" in template
+    assert (
+        "CHATBOT_LLM_SERVERLESS_AUDIENCE=REPLACE_WITH_LLM_CLOUD_RUN_AUDIENCE"
+        in template
+    )
     assert "DB_DSN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
     assert "REDIS_URL_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template
     assert "HF_TOKEN_SECRET_VERSION=REPLACE_WITH_PINNED_SECRET_VERSION" in template

@@ -14,6 +14,9 @@ def test_load_config_defaults(monkeypatch):
         "RECOMMENDATION_SERVICE_SERVERLESS_AUDIENCE",
         "RECOMMENDATION_SERVICE_SERVERLESS_TOKEN_ENV",
         "CHATBOT_LLM_AUTH_MODE",
+        "CHATBOT_LLM_SERVERLESS_AUTH_MODE",
+        "CHATBOT_LLM_SERVERLESS_AUDIENCE",
+        "CHATBOT_LLM_SERVERLESS_TOKEN_ENV",
         "CHATBOT_REQUIRE_GROUNDED_FACTS",
         "CHATBOT_CACHE_BACKEND",
         "CHATBOT_CACHE_PROFILE_STATUS_TTL_SEC",
@@ -43,6 +46,9 @@ def test_load_config_defaults(monkeypatch):
     assert config.llm_provider == "none"
     assert config.llm_auth_mode == "none"
     assert config.llm_api_key_env == "HF_TOKEN"
+    assert config.llm_serverless_auth_mode == "none"
+    assert config.llm_serverless_audience == ""
+    assert config.llm_serverless_token_env == "GOOGLE_ID_TOKEN"
     assert config.llm_max_tokens == 512
     assert config.default_language == "ko"
     assert config.require_grounded_facts is True
@@ -117,4 +123,5 @@ def test_llm_provider_defaults_to_openai_compatible_adapter_when_endpoint_is_set
     config = load_config()
 
     assert config.llm_provider == "huggingface_tgi"
+    assert config.llm_serverless_audience == "https://llm.example.com"
     assert config.llm_auth_mode == "none"
