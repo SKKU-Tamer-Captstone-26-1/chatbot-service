@@ -228,3 +228,44 @@ async def test_get_conversation_and_feedback_are_scoped_to_authenticated_user():
     )
 
     assert exc_info.value.code == grpc.StatusCode.INVALID_ARGUMENT
+
+
+@pytest.mark.anyio
+async def test_get_conversation_without_id_returns_latest_for_user():
+    repository = InMemoryConversationRepository()
+    home_conversation = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_HOME",
+    )
+    board_conversation = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_BOARD",
+    )
+    message_id = await repository.append_message(
+        conversation_id=board_conversation,
+        role="ASSISTANT",
+        content="latest",
+        metadata={"intent": "RECOMMEND_BEVERAGE"},
+    )
+
+    servicer, pb2 = _servicer(repository=repository)
+
+    response = await servicer.GetConversation(
+        pb2.GetConversationRequest(),
+        FakeContext(
+            metadata=[("x-user-id", "user_123"), ("authorization", "Bearer token")]
+        ),
+    )
+    assert response.conversation_id == board_conversation
+    assert len(response.messages) == 1
+    assert response.messages[0].message_id == message_id
+
+    home = await servicer.GetConversation(
+        pb2.GetConversationRequest(conversation_id=home_conversation),
+        FakeContext(
+            metadata=[("x-user-id", "user_123"), ("authorization", "Bearer token")]
+        ),
+    )
+    assert home.conversation_id == home_conversation

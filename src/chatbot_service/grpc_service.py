@@ -58,14 +58,26 @@ def build_chatbot_servicer(
                         grpc.StatusCode.FAILED_PRECONDITION,
                         "Conversation storage is disabled.",
                     )
+                conversation_id = request.conversation_id
+                if not conversation_id:
+                    conversation_id = await conversation_repository.get_latest_conversation_id_for_user(
+                        user_id=caller.user_id,
+                        screen_context="SCREEN_CONTEXT_UNSPECIFIED",
+                    )
+                if not conversation_id:
+                    return chatbot_pb2.GetConversationResponse(
+                        conversation_id="",
+                        messages=[],
+                        next_page_token="",
+                    )
                 messages, next_page_token = await conversation_repository.get_messages(
                     user_id=caller.user_id,
-                    conversation_id=request.conversation_id,
+                    conversation_id=conversation_id,
                     page_size=request.page_size,
                     page_token=request.page_token,
                 )
                 return chatbot_pb2.GetConversationResponse(
-                    conversation_id=request.conversation_id,
+                    conversation_id=conversation_id,
                     messages=[
                         conversation_message_to_proto(message, chatbot_pb2)
                         for message in messages

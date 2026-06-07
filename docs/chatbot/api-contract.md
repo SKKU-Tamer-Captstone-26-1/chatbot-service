@@ -87,6 +87,16 @@ Response draft:
 }
 ```
 
+## `GetConversation`
+
+`conversation_id` is optional for callers.
+
+- If `conversation_id` is provided: return that conversation.
+- If `conversation_id` is empty: resolve and return the latest conversation for the
+  authenticated user.
+- If no conversation exists: return `conversation_id=""` and an empty `messages`
+  list.
+
 ## Card Types
 
 | Card Type | Use |
