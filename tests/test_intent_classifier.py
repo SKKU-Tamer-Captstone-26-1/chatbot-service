@@ -30,6 +30,32 @@ def test_classify_compare_request():
     assert classifier.classify("어느 쪽이 더 저렴해") == ChatbotIntent.COMPARE_PURCHASE_OPTIONS
 
 
+def test_classify_price_aware_beverage_recommendation_as_beverage():
+    classifier = IntentClassifier()
+
+    assert (
+        classifier.classify("가격까지 고려해서 술 추천해줘")
+        == ChatbotIntent.RECOMMEND_BEVERAGE
+    )
+    assert classifier.classify("가성비 좋은 술 추천해줘") == ChatbotIntent.RECOMMEND_BEVERAGE
+
+
+def test_classify_inventory_and_purchase_questions_as_venue():
+    classifier = IntentClassifier()
+
+    assert classifier.classify("지금 재고 있는 곳 알려줘") == ChatbotIntent.FIND_NEARBY_VENUE
+    assert (
+        classifier.classify("이 위스키 살 수 있는 보틀샵 알려줘")
+        == ChatbotIntent.FIND_NEARBY_VENUE
+    )
+
+
+def test_classify_general_knowledge_with_alcohol_terms_as_out_of_scope():
+    classifier = IntentClassifier()
+
+    assert classifier.classify("맥주의 역사 알려줘") == ChatbotIntent.OUT_OF_SCOPE
+
+
 def test_classify_out_of_scope():
     classifier = IntentClassifier()
 

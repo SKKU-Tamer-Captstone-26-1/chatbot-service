@@ -31,3 +31,46 @@
     - "authorization"
     - "prompt"
     - "JWT"
+
+- name: venue_missing_context_polite_tone
+  user_message: "장소 추천해줘"
+  mocked_profile_status: "PROFILE_STATUS_ACTIVE"
+  expected_intent: "CHATBOT_INTENT_INSUFFICIENT_DATA"
+  expected_status: "CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA"
+  expected_missing_facts:
+    - "detailed_location"
+    - "selected_beverage_id"
+  expected_answer_contains:
+    - "장소 추천"
+    - "위치"
+  checks:
+    - "no_answer"
+    - "korean_tone"
+  max_answer_chars: 220
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
+    - "authorization"
+    - "prompt"
+    - "JWT"
+
+- name: alternative_candidate_exhausted_polite_tone
+  user_message: "다른 술 추천해줘"
+  mocked_profile_status: "PROFILE_STATUS_ACTIVE"
+  mocked_recommendations: "duplicate_previous"
+  expected_intent: "CHATBOT_INTENT_INSUFFICIENT_DATA"
+  expected_status: "CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA"
+  expected_missing_facts:
+    - "beverage_recommendation_candidates_exhausted"
+  expected_answer_contains:
+    - "다른 추천 후보"
+  checks:
+    - "no_answer"
+    - "korean_tone"
+  max_answer_chars: 180
+  forbidden_answer_terms:
+    - "used_sources"
+    - "metadata"
+    - "authorization"
+    - "prompt"
+    - "JWT"

@@ -50,3 +50,22 @@
   forbidden_answer_terms:
     - "used_sources"
     - "metadata"
+
+- name: recommendation_service_unavailable_not_profile_missing
+  user_message: "내 취향에 맞는 술 추천해줘"
+  mocked_profile_status: "unavailable"
+  expected_intent: "CHATBOT_INTENT_INSUFFICIENT_DATA"
+  expected_status: "CHATBOT_RESPONSE_STATUS_INSUFFICIENT_DATA"
+  expected_missing_facts:
+    - "recommendation_service_unavailable"
+  expected_answer_contains:
+    - "추천 데이터를 일시적으로"
+  checks:
+    - "no_answer"
+    - "korean_tone"
+  max_answer_chars: 180
+  forbidden_answer_terms:
+    - "프로필 준비"
+    - "추천 프로필이 준비되지"
+    - "used_sources"
+    - "metadata"

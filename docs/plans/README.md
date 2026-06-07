@@ -32,6 +32,7 @@ stable.
 | 016 | `016-production-storage-hardening.md` | Async persistence hardening for queue-full and write reliability |
 | 017 | `017-intent-context-hardening.md` | Context-aware intent routing for ambiguous venue follow-up and intent continuity |
 | 018 | `018-diversity-exhaustion-hardening.md` | Prevent repetitive follow-up responses when no new recommendation candidates are returned |
+| 019 | `019-guarded-intent-classifier-and-korean-eval.md` | Score-based guarded intent routing and expanded Korean fallback evaluation |
 
 ## Non-Negotiable Rules
 
