@@ -58,6 +58,7 @@ class ChatbotPipeline:
         started_at = time.perf_counter()
         status = "error"
         try:
+            request = await self._resolve_conversation_id(request=request, caller=caller)
             conversation_hints = await self._load_conversation_context_hints(
                 request=request,
                 caller=caller,
@@ -216,6 +217,23 @@ class ChatbotPipeline:
             request=request,
             caller=caller,
         )
+
+    async def _resolve_conversation_id(
+        self,
+        request: ChatbotRequest,
+        caller: CallerContext,
+    ) -> ChatbotRequest:
+        if request.conversation_id or self._conversation_repository is None:
+            return request
+
+        conversation_id = await _resolve_latest_conversation_id_for_user(
+            repository=self._conversation_repository,
+            user_id=caller.user_id,
+            screen_context=request.screen_context,
+        )
+        if not conversation_id:
+            return request
+        return replace(request, conversation_id=conversation_id)
 
     async def _conversation_context_for_request(
         self,
@@ -378,6 +396,25 @@ async def _conversation_context_for_request(
         request=request_message,
         messages=messages,
     )
+
+
+async def _resolve_latest_conversation_id_for_user(
+    *,
+    repository,
+    user_id: str,
+    screen_context: str,
+) -> str:
+    resolve = getattr(repository, "get_latest_conversation_id_for_user", None)
+    if not callable(resolve):
+        return ""
+    try:
+        return str(await resolve(user_id=user_id, screen_context=screen_context) or "")
+    except Exception:
+        LOGGER.warning(
+            "failed to resolve latest conversation id for user; start a fresh conversation",
+            extra={"user_id": user_id},
+        )
+        return ""
 
 
 def _build_conversation_context_hints(

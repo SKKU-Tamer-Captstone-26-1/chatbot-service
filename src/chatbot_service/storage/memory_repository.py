@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -30,8 +31,35 @@ class InMemoryConversationRepository:
             "user_id": user_id,
             "screen_context": screen_context,
             "metadata": metadata or {},
+            "created_at": datetime.now(timezone.utc),
         }
         return new_id
+
+    async def get_latest_conversation_id_for_user(
+        self,
+        user_id: str,
+        screen_context: str,
+    ) -> str:
+        default_created_at = datetime.min.replace(tzinfo=timezone.utc)
+        constrain_by_screen_context = bool(
+            screen_context and screen_context != "SCREEN_CONTEXT_UNSPECIFIED"
+        )
+        candidates = [
+            (conversation_id, value)
+            for conversation_id, value in self.conversations.items()
+            if value.get("user_id") == user_id
+            and (
+                not constrain_by_screen_context
+                or value.get("screen_context") == screen_context
+            )
+        ]
+        if not candidates:
+            return ""
+        latest = sorted(
+            candidates,
+            key=lambda item: item[1].get("created_at", default_created_at),
+        )[-1][0]
+        return latest
 
     async def append_message(
         self,

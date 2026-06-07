@@ -59,6 +59,38 @@ class PostgresConversationRepository:
             )
             return str(row["id"])
 
+    async def get_latest_conversation_id_for_user(
+        self,
+        user_id: str,
+        screen_context: str,
+    ) -> str:
+        pool = await self._get_pool()
+        if screen_context == "SCREEN_CONTEXT_UNSPECIFIED":
+            query = """
+                SELECT id::text
+                FROM chatbot_conversations
+                WHERE external_user_id = $1
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """
+            params: list[object] = [user_id]
+        else:
+            query = """
+                SELECT id::text
+                FROM chatbot_conversations
+                WHERE external_user_id = $1
+                  AND screen_context = $2
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """
+            params = [user_id, screen_context]
+        async with pool.acquire() as connection:
+            row = await connection.fetchrow(
+                query,
+                *params,
+            )
+        return str(row["id"]) if row else ""
+
     async def append_message(
         self,
         conversation_id: str,

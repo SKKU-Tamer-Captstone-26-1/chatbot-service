@@ -80,6 +80,17 @@ class AsyncConversationRepository:
             self._known_conversations.add((user_id, stable_conversation_id))
         return stable_conversation_id
 
+    async def get_latest_conversation_id_for_user(
+        self,
+        user_id: str,
+        screen_context: str,
+    ) -> str:
+        await self.drain()
+        return await self._inner.get_latest_conversation_id_for_user(
+            user_id=user_id,
+            screen_context=screen_context,
+        )
+
     async def append_message(
         self,
         conversation_id: str,

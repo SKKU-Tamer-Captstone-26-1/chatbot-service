@@ -1,6 +1,7 @@
 import pytest
 
 from chatbot_service.storage.memory_repository import InMemoryConversationRepository
+from chatbot_service.storage.async_repository import AsyncConversationRepository
 
 
 @pytest.mark.anyio
@@ -81,3 +82,64 @@ async def test_memory_repository_scopes_reads_and_feedback_to_user():
             conversation_id=conversation_id,
             screen_context="SCREEN_CONTEXT_HOME",
         )
+
+
+@pytest.mark.anyio
+async def test_memory_repository_get_latest_conversation_for_user_and_screen():
+    repository = InMemoryConversationRepository()
+    await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_CHAT",
+    )
+    second = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_CHAT",
+    )
+    other_context = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_HOME",
+    )
+
+    assert await repository.get_latest_conversation_id_for_user(
+        user_id="user_123",
+        screen_context="SCREEN_CONTEXT_CHAT",
+    ) == second
+    assert await repository.get_latest_conversation_id_for_user(
+        user_id="user_123",
+        screen_context="SCREEN_CONTEXT_HOME",
+    ) == other_context
+    assert await repository.get_latest_conversation_id_for_user(
+        user_id="user_123",
+        screen_context="SCREEN_CONTEXT_UNSPECIFIED",
+    ) == other_context
+    assert await repository.get_latest_conversation_id_for_user(
+        user_id="user_123",
+        screen_context="SCREEN_CONTEXT_BOARD",
+    ) == ""
+
+
+@pytest.mark.anyio
+async def test_async_conversation_repository_get_latest_conversation_for_user():
+    inner = InMemoryConversationRepository()
+    repository = AsyncConversationRepository(inner)
+
+    first = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_CHAT",
+    )
+    second = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_CHAT",
+    )
+
+    assert await repository.get_latest_conversation_id_for_user(
+        user_id="user_123",
+        screen_context="SCREEN_CONTEXT_CHAT",
+    ) == second
+    await repository.close()
+    assert first and second

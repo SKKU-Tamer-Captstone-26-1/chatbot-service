@@ -649,6 +649,89 @@ async def test_pipeline_resolves_selected_beverage_from_client_context_for_venue
 
 
 @pytest.mark.anyio
+async def test_pipeline_reuses_latest_conversation_context_when_conversation_id_missing():
+    repository = InMemoryConversationRepository()
+    conversation_id = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_CHAT",
+    )
+    await repository.append_message(
+        conversation_id=conversation_id,
+        role="ASSISTANT",
+        content="최근 추천 목록을 확인했어요",
+        metadata={
+            "used_sources": {
+                "beverage_ids": ["bev_prev"],
+                "beverage_result_ids": ["bev_prev_result"],
+            }
+        },
+    )
+
+    recommendation_client = FakeRecommendationClient()
+    llm = RecordingLLM()
+    answer = await _pipeline(
+        llm,
+        repository=repository,
+        recommendation_client=recommendation_client,
+    ).ask(
+        ChatbotRequest(
+            message="다른 술 추천해줘",
+            screen_context="SCREEN_CONTEXT_CHAT",
+        ),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.ANSWERED
+    assert answer.conversation_id == conversation_id
+    _, filters = recommendation_client.beverage_calls[0]
+    assert "bev_prev" in filters["exclude_beverage_ids"]
+
+
+@pytest.mark.anyio
+async def test_pipeline_reuses_latest_conversation_context_when_screen_context_unspecified():
+    repository = InMemoryConversationRepository()
+    conversation_id = await repository.create_or_get_conversation(
+        user_id="user_123",
+        conversation_id=None,
+        screen_context="SCREEN_CONTEXT_HOME",
+    )
+    await repository.append_message(
+        conversation_id=conversation_id,
+        role="ASSISTANT",
+        content="최근 추천 목록을 확인했어요",
+        metadata={
+            "used_sources": {
+                "beverage_ids": ["bev_prev_unspecified"],
+                "beverage_result_ids": ["bev_prev_unspecified_result"],
+            }
+        },
+    )
+
+    recommendation_client = FakeRecommendationClient()
+    llm = RecordingLLM()
+    answer = await _pipeline(
+        llm,
+        repository=repository,
+        recommendation_client=recommendation_client,
+    ).ask(
+        ChatbotRequest(message="다른 술 추천해줘"),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.ANSWERED
+    assert answer.conversation_id == conversation_id
+    _, filters = recommendation_client.beverage_calls[0]
+    assert "bev_prev_unspecified" in filters["exclude_beverage_ids"]
+
+
+@pytest.mark.anyio
 async def test_pipeline_forwards_venue_filters_for_diversity_request():
     llm = RecordingLLM()
     recommendation_client = FakeRecommendationClient()
