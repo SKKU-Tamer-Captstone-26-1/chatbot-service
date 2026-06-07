@@ -363,6 +363,32 @@ async def test_preflight_allows_local_llm_without_api_key_when_auth_none():
     assert result.passed is True
     assert result.checks["postgres_dsn"] == "skipped"
     assert result.checks["llm_api_key"] == "skipped"
+    assert result.checks["llm_endpoint_format"] == "ok"
+
+
+@pytest.mark.anyio
+async def test_preflight_rejects_invalid_llm_endpoint_path():
+    config = load_validation_config(
+        {
+            "CHATBOT_VALIDATION_AUTHORIZATION": "Bearer token",
+            "CHATBOT_VALIDATION_REQUIRE_REDIS_PREFLIGHT": "false",
+            "RECOMMENDATION_SERVICE_GRPC_ADDR": "recommendation:9090",
+            "CHATBOT_STORE_CONVERSATIONS": "false",
+            "CHATBOT_CACHE_BACKEND": "memory",
+            "CHATBOT_LLM_PROVIDER": "huggingface_tgi",
+            "CHATBOT_LLM_ENDPOINT_URL": "https://llm.example.com/v1/completions",
+            "CHATBOT_LLM_MODEL": "bad-endpoint-chatbot",
+            "CHATBOT_LLM_AUTH_MODE": "none",
+        }
+    )
+
+    result = await run_preflight_checks(config)
+
+    assert result.passed is False
+    assert (
+        result.checks["llm_endpoint_format"]
+        == "failed: CHATBOT_LLM_ENDPOINT_URL must end with /v1/chat/completions"
+    )
 
 
 @pytest.mark.anyio

@@ -43,7 +43,7 @@ python3 -m ruff check .
 python3 -m pytest
 ```
 
-마지막 확인 기준으로 전체 테스트는 `104 passed`였다.
+마지막 확인 기준으로 전체 테스트는 `143 passed`였다.
 
 ## 현재 GCP Staging 상태
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from chatbot_service.validation.config import ValidationConfig
 
@@ -63,6 +64,9 @@ def _check_runtime_settings(config: ValidationConfig) -> dict[str, str]:
             "CHATBOT_LLM_ENDPOINT_URL",
             config.llm_endpoint_url,
         )
+        checks["llm_endpoint_format"] = _check_openai_chat_completions_url(
+            config.llm_endpoint_url,
+        )
         checks["llm_model"] = _required("CHATBOT_LLM_MODEL", config.llm_model)
         checks.update(_check_llm_auth_settings(config))
     elif llm_provider in {"", "none"}:
@@ -70,6 +74,29 @@ def _check_runtime_settings(config: ValidationConfig) -> dict[str, str]:
     else:
         checks["llm_provider"] = f"failed: unsupported CHATBOT_LLM_PROVIDER {config.llm_provider}"
     return checks
+
+
+def _check_openai_chat_completions_url(url: str) -> str:
+    cleaned = url.strip()
+    if not cleaned:
+        return "failed: CHATBOT_LLM_ENDPOINT_URL is required"
+    if _looks_like_placeholder(cleaned):
+        return "failed: CHATBOT_LLM_ENDPOINT_URL still has a placeholder value"
+
+    try:
+        parsed = urlparse(cleaned)
+    except ValueError:
+        return "failed: CHATBOT_LLM_ENDPOINT_URL must be a valid URL"
+
+    if not parsed.scheme:
+        return "failed: CHATBOT_LLM_ENDPOINT_URL must be an HTTP-compatible URL"
+    if parsed.scheme not in {"http", "https"}:
+        return "failed: CHATBOT_LLM_ENDPOINT_URL must be HTTP or HTTPS"
+
+    path = (parsed.path or "").rstrip("/")
+    if path.endswith("/v1/chat/completions"):
+        return "ok"
+    return "failed: CHATBOT_LLM_ENDPOINT_URL must end with /v1/chat/completions"
 
 
 def _check_llm_auth_settings(config: ValidationConfig) -> dict[str, str]:
