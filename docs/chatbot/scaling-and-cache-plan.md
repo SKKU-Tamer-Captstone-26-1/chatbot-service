@@ -166,7 +166,16 @@ Implementation status:
 
 - `src/chatbot_service/metrics.py` provides in-process counters and latency
   summaries with p50, p95, p99, and max.
-- `ChatbotPipeline` records `chatbot.ask` and `llm.call`.
+- `ChatbotPipeline` records `chatbot.ask` and `llm.call` latency.
+- `ChatbotPipeline` records request/response counters:
+  - `chatbot.intent`
+  - `chatbot.response`
+  - `chatbot.missing_fact`
+  - `chatbot.refusal_reason`
+  - `recommendation.unavailable`
+  - `llm.success`
+  - `llm.failure`
+  - `llm.verifier_fallback`
 - Recommendation and storage wrappers record cache and write metrics.
 
 ### Phase B: Recommendation Response Cache

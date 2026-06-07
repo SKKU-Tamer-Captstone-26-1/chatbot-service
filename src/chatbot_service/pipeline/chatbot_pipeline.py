@@ -67,6 +67,7 @@ class ChatbotPipeline:
                 request.message,
                 previous_intent=conversation_hints.last_assistant_intent,
             )
+            self._metrics.increment("chatbot.intent", intent=intent.value)
             request = await self._apply_conversation_context(
                 request=request,
                 caller=caller,
@@ -74,10 +75,16 @@ class ChatbotPipeline:
                 context_hints=conversation_hints,
             )
             context = await self._context_builder.build(intent, request, caller)
+            self._record_context_metrics(intent, context)
 
             guarded = self._guardrails.enforce(intent, context)
             if guarded is not None:
                 status = guarded.status.value
+                self._record_answer_metrics(
+                    request_intent=intent,
+                    answer=guarded,
+                    outcome="guardrail",
+                )
                 await self._persist_if_configured(request, caller, guarded)
                 return guarded
 
@@ -95,6 +102,7 @@ class ChatbotPipeline:
             except LLMGenerationError:
                 llm_latency_sec = time.perf_counter() - llm_started_at
                 self._metrics.observe("llm.call", llm_latency_sec)
+                self._metrics.increment("llm.failure", intent=intent.value, reason="unavailable")
                 llm_observed = True
                 LOGGER.exception("LLM generation failed; using grounded fallback")
                 answer = self._response_builder.build_generation_fallback(
@@ -110,6 +118,11 @@ class ChatbotPipeline:
                     llm_latency_sec=llm_latency_sec,
                     outcome="llm_unavailable_fallback",
                 )
+                self._record_answer_metrics(
+                    request_intent=intent,
+                    answer=answer,
+                    outcome="llm_unavailable_fallback",
+                )
                 await self._persist_if_configured(request, caller, answer)
                 return answer
             finally:
@@ -119,6 +132,8 @@ class ChatbotPipeline:
             try:
                 verified = self._response_verifier.verify(generated, context)
             except ResponseVerificationError:
+                self._metrics.increment("llm.failure", intent=intent.value, reason="ungrounded")
+                self._metrics.increment("llm.verifier_fallback", intent=intent.value)
                 LOGGER.warning("LLM response verification failed; using grounded fallback")
                 answer = self._response_builder.build_generation_fallback(
                     intent,
@@ -133,9 +148,15 @@ class ChatbotPipeline:
                     llm_latency_sec=llm_latency_sec,
                     outcome="verification_fallback",
                 )
+                self._record_answer_metrics(
+                    request_intent=intent,
+                    answer=answer,
+                    outcome="verification_fallback",
+                )
                 await self._persist_if_configured(request, caller, answer)
                 return answer
 
+            self._metrics.increment("llm.success", intent=intent.value)
             answer = self._response_builder.build_from_grounded_text(intent, verified, context)
             answer.prompt_context_hash = context_hash
             status = answer.status.value
@@ -143,6 +164,11 @@ class ChatbotPipeline:
                 caller=caller,
                 context=context,
                 llm_latency_sec=llm_latency_sec,
+                outcome="llm_answer",
+            )
+            self._record_answer_metrics(
+                request_intent=intent,
+                answer=answer,
                 outcome="llm_answer",
             )
             await self._persist_if_configured(request, caller, answer)
@@ -344,6 +370,35 @@ class ChatbotPipeline:
                 "prompt_context_hash": answer.prompt_context_hash,
             },
         )
+
+    def _record_context_metrics(self, intent: ChatbotIntent, context: object) -> None:
+        missing_facts = getattr(context, "missing_facts", [])
+        for fact in missing_facts if isinstance(missing_facts, list) else []:
+            fact_text = str(fact)
+            self._metrics.increment("chatbot.missing_fact", intent=intent.value, fact=fact_text)
+            if fact_text == "recommendation_service_unavailable":
+                self._metrics.increment("recommendation.unavailable", intent=intent.value)
+
+    def _record_answer_metrics(
+        self,
+        *,
+        request_intent: ChatbotIntent,
+        answer: ChatbotAnswer,
+        outcome: str,
+    ) -> None:
+        self._metrics.increment(
+            "chatbot.response",
+            request_intent=request_intent.value,
+            response_intent=answer.intent.value,
+            status=answer.status.value,
+            outcome=outcome,
+        )
+        if answer.refusal_reason:
+            self._metrics.increment(
+                "chatbot.refusal_reason",
+                request_intent=request_intent.value,
+                reason=answer.refusal_reason,
+            )
 
     def _log_grounded_response(
         self,

@@ -6,6 +6,7 @@ from chatbot_service.domain.schemas import (
     ChatbotRequest,
     ChatbotResponseStatus,
 )
+from chatbot_service.metrics import MetricsRecorder
 from chatbot_service.pipeline.chatbot_pipeline import ChatbotPipeline
 from chatbot_service.pipeline.context_builder import RecommendationContextBuilder
 from chatbot_service.pipeline.guardrails import Guardrails
@@ -147,13 +148,22 @@ class RaisingLLM:
         raise LLMGenerationError("LLM unavailable")
 
 
+class UngroundedLLM:
+    def __init__(self):
+        self.calls = []
+
+    async def generate(self, system_prompt, context_json, user_message):
+        self.calls.append((system_prompt, context_json, user_message))
+        return "추천 서비스에 없는 허구 맥주를 추천드려요."
+
+
 class UnavailableRecommendationClient(FakeRecommendationClient):
     async def get_profile_status(self, auth_metadata):
         self.profile_calls.append(auth_metadata)
         raise RecommendationClientError("unavailable")
 
 
-def _pipeline(llm, repository=None, recommendation_client=None):
+def _pipeline(llm, repository=None, recommendation_client=None, metrics=None):
     return ChatbotPipeline(
         intent_classifier=IntentClassifier(),
         context_builder=RecommendationContextBuilder(
@@ -165,6 +175,7 @@ def _pipeline(llm, repository=None, recommendation_client=None):
         response_verifier=ResponseVerifier(),
         response_builder=ResponseBuilder(),
         conversation_repository=repository,
+        metrics=metrics,
     )
 
 
@@ -207,6 +218,29 @@ async def test_pipeline_uses_recommendation_candidates_for_cards():
         "bev_result_1",
         "bev_result_2",
     ]
+
+
+@pytest.mark.anyio
+async def test_pipeline_records_success_observability_metrics():
+    metrics = MetricsRecorder()
+    llm = RecordingLLM()
+
+    await _pipeline(llm, metrics=metrics).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    snapshot = metrics.snapshot()
+    counters = snapshot["counters"]
+    timers = snapshot["timers"]
+    assert counters["chatbot.intent|intent=RECOMMEND_BEVERAGE"] == 1
+    assert counters["llm.success|intent=RECOMMEND_BEVERAGE"] == 1
+    assert counters[
+        "chatbot.response|outcome=llm_answer,request_intent=RECOMMEND_BEVERAGE,"
+        "response_intent=RECOMMEND_BEVERAGE,status=ANSWERED"
+    ] == 1
+    assert "llm.call" in timers
+    assert "chatbot.ask|status=ANSWERED" in timers
 
 
 @pytest.mark.anyio
@@ -354,6 +388,40 @@ async def test_pipeline_returns_deterministic_fallback_when_recommendation_servi
 
 
 @pytest.mark.anyio
+async def test_pipeline_records_recommendation_unavailable_metrics():
+    metrics = MetricsRecorder()
+    llm = RecordingLLM()
+    recommendation_client = UnavailableRecommendationClient()
+
+    await _pipeline(
+        llm,
+        recommendation_client=recommendation_client,
+        metrics=metrics,
+    ).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    counters = metrics.snapshot()["counters"]
+    assert counters["recommendation.unavailable|intent=RECOMMEND_BEVERAGE"] == 1
+    assert counters[
+        "chatbot.missing_fact|fact=recommendation_service_unavailable,"
+        "intent=RECOMMEND_BEVERAGE"
+    ] == 1
+    assert counters[
+        "chatbot.refusal_reason|reason=RECOMMENDATION_SERVICE_UNAVAILABLE,"
+        "request_intent=RECOMMEND_BEVERAGE"
+    ] == 1
+    assert counters[
+        "chatbot.response|outcome=guardrail,request_intent=RECOMMEND_BEVERAGE,"
+        "response_intent=INSUFFICIENT_DATA,status=INSUFFICIENT_DATA"
+    ] == 1
+
+
+@pytest.mark.anyio
 async def test_pipeline_returns_grounded_cards_when_llm_is_unavailable():
     llm = RaisingLLM()
 
@@ -367,6 +435,45 @@ async def test_pipeline_returns_grounded_cards_when_llm_is_unavailable():
     assert [card.title for card in answer.cards] == ["테스트 위스키", "테스트 진"]
     assert answer.used_sources["beverage_result_ids"] == ["bev_result_1", "bev_result_2"]
     assert len(llm.calls) == 1
+
+
+@pytest.mark.anyio
+async def test_pipeline_records_llm_unavailable_metrics():
+    metrics = MetricsRecorder()
+    llm = RaisingLLM()
+
+    await _pipeline(llm, metrics=metrics).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    counters = metrics.snapshot()["counters"]
+    assert counters["llm.failure|intent=RECOMMEND_BEVERAGE,reason=unavailable"] == 1
+    assert counters[
+        "chatbot.response|outcome=llm_unavailable_fallback,"
+        "request_intent=RECOMMEND_BEVERAGE,response_intent=RECOMMEND_BEVERAGE,"
+        "status=ANSWERED"
+    ] == 1
+
+
+@pytest.mark.anyio
+async def test_pipeline_records_llm_verifier_fallback_metrics():
+    metrics = MetricsRecorder()
+    llm = UngroundedLLM()
+
+    await _pipeline(llm, metrics=metrics).ask(
+        ChatbotRequest(message="내 취향에 맞는 술 추천해줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    counters = metrics.snapshot()["counters"]
+    assert counters["llm.failure|intent=RECOMMEND_BEVERAGE,reason=ungrounded"] == 1
+    assert counters["llm.verifier_fallback|intent=RECOMMEND_BEVERAGE"] == 1
+    assert counters[
+        "chatbot.response|outcome=verification_fallback,"
+        "request_intent=RECOMMEND_BEVERAGE,response_intent=RECOMMEND_BEVERAGE,"
+        "status=ANSWERED"
+    ] == 1
 
 
 @pytest.mark.anyio
