@@ -3,10 +3,10 @@ import json
 import pytest
 
 from chatbot_service.pipeline.llm_adapter import (
+    _TOKEN_CACHE,
     HuggingFaceTGIAdapter,
     HuggingFaceTGIConfig,
     LLMGenerationError,
-    _TOKEN_CACHE,
     _extract_chat_completion_text,
 )
 
@@ -155,7 +155,7 @@ def test_huggingface_tgi_fetches_google_id_token_for_private_cloud_run(monkeypat
 
     def fake_urlopen(request, timeout):
         calls.append(request.full_url)
-        if request.full_url.startswith("http://metadata/"):
+        if request.full_url.startswith("http://metadata.google.internal/"):
             return FakeTokenResponse()
         captured["request"] = request
         return FakeLLMResponse()

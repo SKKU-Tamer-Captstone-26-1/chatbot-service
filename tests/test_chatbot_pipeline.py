@@ -223,6 +223,27 @@ async def test_pipeline_returns_no_answer_without_location_for_venue():
 
 
 @pytest.mark.anyio
+async def test_pipeline_routes_place_recommendation_to_venue_not_beverage():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(message="장소 추천해줘"),
+        CallerContext(user_id="user_123", metadata={"x-user-id": "user_123"}),
+    )
+
+    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
+    assert answer.intent == "INSUFFICIENT_DATA"
+    assert answer.cards == []
+    assert answer.missing_facts == ["detailed_location", "selected_beverage_id"]
+    assert "장소 추천" in answer.answer
+    assert recommendation_client.profile_calls
+    assert recommendation_client.beverage_calls == []
+    assert recommendation_client.venue_calls == []
+    assert llm.calls == []
+
+
+@pytest.mark.anyio
 async def test_pipeline_uses_venue_cards_for_nearby_sources():
     llm = RecordingLLM()
     answer = await _pipeline(llm).ask(
@@ -363,3 +384,30 @@ async def test_pipeline_refuses_out_of_scope_without_recommendation_or_llm_calls
     assert answer.refusal_reason == "OUT_OF_SCOPE"
     assert llm.calls == []
     assert recommendation_client.profile_calls == []
+
+
+@pytest.mark.anyio
+async def test_pipeline_forwards_diversity_context_on_follow_up_request():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+    caller = CallerContext(
+        user_id="user_123",
+        metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+    )
+    request = ChatbotRequest(
+        message="다른 술 추천해줘",
+        client_context={
+            "previous_beverage_ids": ["bev_2", "bev_1"],
+            "previous_result_ids": ["result_2", "result_1"],
+            "session_context_id": "conv-1",
+        },
+    )
+
+    await _pipeline(llm, recommendation_client=recommendation_client).ask(request, caller)
+
+    auth_metadata, filters = recommendation_client.beverage_calls[0]
+    assert auth_metadata["authorization"] == "Bearer token"
+    assert sorted(filters["exclude_beverage_ids"]) == ["bev_1", "bev_2"]
+    assert sorted(filters["exclude_result_ids"]) == ["result_1", "result_2"]
+    assert filters["diversity_mode"] == "DIFFERENT_STYLE"
+    assert filters["session_context_id"] == "conv-1"

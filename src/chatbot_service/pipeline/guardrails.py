@@ -54,6 +54,17 @@ class Guardrails:
                 refusal_reason="RECOMMENDATION_SERVICE_UNAVAILABLE",
                 missing_facts=context.missing_facts,
             )
+        if _has_missing_venue_inputs(context):
+            return ChatbotAnswer(
+                intent=ChatbotIntent.INSUFFICIENT_DATA,
+                answer=_missing_venue_inputs_answer(context.missing_facts),
+                confidence=1.0,
+                status=ChatbotResponseStatus.INSUFFICIENT_DATA,
+                refused=False,
+                refusal_reason="INSUFFICIENT_DATA",
+                missing_facts=context.missing_facts,
+                follow_up_questions=_missing_venue_follow_ups(context.missing_facts),
+            )
         if _has_empty_recommendations(context):
             return ChatbotAnswer(
                 intent=ChatbotIntent.INSUFFICIENT_DATA,
@@ -95,6 +106,41 @@ def _has_empty_recommendations(context: GroundedContext) -> bool:
             "fresh_venue_recommendation_candidates",
         )
     )
+
+
+def _has_missing_venue_inputs(context: GroundedContext) -> bool:
+    if context.intent not in {
+        ChatbotIntent.FIND_NEARBY_VENUE.value,
+        ChatbotIntent.COMPARE_PURCHASE_OPTIONS.value,
+    }:
+        return False
+    return any(
+        fact in context.missing_facts
+        for fact in ("detailed_location", "selected_beverage_id")
+    )
+
+
+def _missing_venue_inputs_answer(missing_facts: list[str]) -> str:
+    if "detailed_location" in missing_facts and "selected_beverage_id" in missing_facts:
+        return (
+            "장소 추천을 하려면 현재 위치와 기준이 될 술 정보가 필요해요. "
+            "먼저 추천받은 술을 선택하고 위치 권한을 허용한 뒤 다시 물어봐 주세요."
+        )
+    if "detailed_location" in missing_facts:
+        return "장소 추천을 하려면 현재 위치가 필요해요. 위치 권한을 허용한 뒤 다시 물어봐 주세요."
+    return (
+        "장소 추천을 하려면 기준이 될 술을 먼저 선택해야 해요. "
+        "추천 카드에서 술을 선택한 뒤 근처 장소를 물어봐 주세요."
+    )
+
+
+def _missing_venue_follow_ups(missing_facts: list[str]) -> list[str]:
+    questions: list[str] = []
+    if "selected_beverage_id" in missing_facts:
+        questions.append("어떤 술을 기준으로 장소를 찾아드릴까요?")
+    if "detailed_location" in missing_facts:
+        questions.append("현재 위치를 사용해도 될까요?")
+    return questions
 
 
 def _profile_status_answer(profile_status: str) -> str:

@@ -11,6 +11,10 @@ from chatbot_service.clients.recommendation_client import (
 )
 from chatbot_service.domain.intents import ChatbotIntent
 from chatbot_service.domain.schemas import CallerContext, ChatbotRequest
+from chatbot_service.pipeline.intent_classifier import (
+    infer_beverage_diversity_mode,
+    is_diverse_beverage_request,
+)
 
 PRICE_EXPERIENCE_WARNING = (
     "이 추천은 검증된 가격 관측값과 사람들의 경험적 의견을 바탕으로 만든 참고용 추천입니다. "
@@ -126,12 +130,17 @@ class RecommendationContextBuilder:
         profile_status: str,
         profile_revision: int,
     ) -> GroundedContext:
+        request_filters = _build_beverage_request_filters(request)
         try:
             response = await self._recommendation_client.get_beverage_recommendations(
                 auth_metadata,
-                category=request.category,
-                limit=request.beverage_limit,
-                budget_mode=request.budget_mode,
+                category=request_filters["category"],
+                limit=request_filters["limit"],
+                budget_mode=request_filters["budget_mode"],
+                exclude_beverage_ids=request_filters["exclude_beverage_ids"],
+                exclude_result_ids=request_filters["exclude_result_ids"],
+                diversity_mode=request_filters["diversity_mode"],
+                session_context_id=request_filters["session_context_id"],
                 profile_revision=profile_revision,
             )
         except RecommendationClientError:
@@ -231,6 +240,64 @@ class RecommendationContextBuilder:
             },
             confidence=_max_score(recommendations),
         )
+
+
+def _build_beverage_request_filters(request: ChatbotRequest) -> dict[str, Any]:
+    return {
+        "category": str(request.category or ""),
+        "limit": int(request.beverage_limit or 0),
+        "budget_mode": str(request.budget_mode or "BUDGET_MODE_UNSPECIFIED"),
+        "exclude_beverage_ids": _to_string_list(
+            _first_non_none(
+                request.client_context.get("exclude_beverage_ids"),
+                request.client_context.get("previous_beverage_ids"),
+                request.client_context.get("beverage_ids"),
+            )
+        ),
+        "exclude_result_ids": _to_string_list(
+            _first_non_none(
+                request.client_context.get("exclude_result_ids"),
+                request.client_context.get("previous_result_ids"),
+                request.client_context.get("result_ids"),
+            )
+        ),
+        "diversity_mode": _infer_beverage_diversity_mode(
+            request.client_context.get("diversity_mode"),
+            request.message,
+        ),
+        "session_context_id": str(
+            _first_non_none(
+                request.client_context.get("session_context_id"),
+                request.conversation_id,
+            )
+            or ""
+        ).strip(),
+    }
+
+
+def _infer_beverage_diversity_mode(client_mode: Any, message: str) -> str:
+    if is_diverse_beverage_request(message):
+        return infer_beverage_diversity_mode(message)
+    if client_mode is None:
+        return ""
+    return str(client_mode).strip()
+
+
+def _first_non_none(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _to_string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
 
 
 def _to_plain_dict(value: Any) -> dict[str, Any]:

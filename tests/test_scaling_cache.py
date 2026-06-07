@@ -181,6 +181,95 @@ async def test_venue_cache_uses_location_bucket_instead_of_exact_coordinates():
 
 
 @pytest.mark.anyio
+async def test_beverage_cache_distinguishes_diversity_filters_and_session_context():
+    inner = CountingRecommendationClient()
+    client = _cached_client(inner)
+    auth_metadata = {"x-user-id": "user_123"}
+
+    await client.get_beverage_recommendations(
+        auth_metadata,
+        profile_revision=7,
+        category="whiskey",
+        budget_mode="BUDGET_MODE_SOFT",
+        limit=3,
+        exclude_beverage_ids=["bev_2", "bev_1"],
+        diversity_mode="DIFFERENT_STYLE",
+        session_context_id="conv-1",
+    )
+    await client.get_beverage_recommendations(
+        auth_metadata,
+        profile_revision=7,
+        category="whiskey",
+        budget_mode="BUDGET_MODE_SOFT",
+        limit=3,
+        exclude_beverage_ids=["bev_1", "bev_2"],
+        diversity_mode="DIFFERENT_STYLE",
+        session_context_id="conv-1",
+    )
+    await client.get_beverage_recommendations(
+        auth_metadata,
+        profile_revision=7,
+        category="whiskey",
+        budget_mode="BUDGET_MODE_SOFT",
+        limit=3,
+        exclude_beverage_ids=["bev_2", "bev_1"],
+        diversity_mode="DIFFERENT_STYLE",
+        session_context_id="conv-2",
+    )
+
+    assert inner.beverage_calls == 2
+
+
+@pytest.mark.anyio
+async def test_venue_cache_includes_diversity_context_filters():
+    inner = CountingRecommendationClient()
+    client = _cached_client(inner)
+    auth_metadata = {"x-user-id": "user_123"}
+
+    await client.get_venue_recommendations(
+        auth_metadata,
+        lat=37.50011,
+        lng=127.10011,
+        profile_revision=7,
+        selected_beverage_id="bev_1",
+        radius_m=1000,
+        budget_mode="BUDGET_MODE_SOFT",
+        limit=3,
+        exclude_result_ids=["v1", "v2"],
+        diversity_mode="DIFFERENT_STYLE",
+        session_context_id="conv-1",
+    )
+    await client.get_venue_recommendations(
+        auth_metadata,
+        lat=37.50011,
+        lng=127.10011,
+        profile_revision=7,
+        selected_beverage_id="bev_1",
+        radius_m=1000,
+        budget_mode="BUDGET_MODE_SOFT",
+        limit=3,
+        exclude_result_ids=["v2", "v1"],
+        diversity_mode="DIFFERENT_STYLE",
+        session_context_id="conv-1",
+    )
+    await client.get_venue_recommendations(
+        auth_metadata,
+        lat=37.50011,
+        lng=127.10011,
+        profile_revision=7,
+        selected_beverage_id="bev_1",
+        radius_m=1000,
+        budget_mode="BUDGET_MODE_SOFT",
+        limit=3,
+        exclude_result_ids=["v1", "v2"],
+        diversity_mode="MORE_LIKE_THIS",
+        session_context_id="conv-1",
+    )
+
+    assert inner.venue_calls == 2
+
+
+@pytest.mark.anyio
 async def test_concurrent_identical_requests_singleflight_recommendation_cache():
     inner = CountingRecommendationClient()
     client = _cached_client(inner)

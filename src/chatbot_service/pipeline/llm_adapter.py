@@ -185,7 +185,8 @@ def _fetch_google_id_token(audience: str, *, timeout_sec: float = 1.0) -> str:
 
     query = urllib.parse.urlencode({"audience": audience, "format": "full"})
     request = urllib.request.Request(
-        f"http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?{query}",
+        "http://metadata.google.internal/computeMetadata/v1/"
+        f"instance/service-accounts/default/identity?{query}",
         headers={"Metadata-Flavor": "Google"},
         method="GET",
     )

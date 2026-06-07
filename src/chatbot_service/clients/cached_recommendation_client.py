@@ -220,6 +220,10 @@ def _beverage_cache_key(user_id: str, profile_revision: int, filters: dict[str, 
             str(filters.get("category", "")),
             str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
             str(int(filters.get("limit") or 0)),
+            _list_cache_segment(filters.get("exclude_beverage_ids")),
+            _list_cache_segment(filters.get("exclude_result_ids")),
+            str(filters.get("diversity_mode", "")),
+            str(filters.get("session_context_id", "")),
         ]
     )
 
@@ -240,6 +244,10 @@ def _venue_cache_key(
             str(int(filters.get("radius_m") or 0)),
             str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
             str(int(filters.get("limit") or 0)),
+            _list_cache_segment(filters.get("exclude_beverage_ids")),
+            _list_cache_segment(filters.get("exclude_result_ids")),
+            str(filters.get("diversity_mode", "")),
+            str(filters.get("session_context_id", "")),
         ]
     )
 
@@ -279,6 +287,24 @@ def _venue_recommendation_cacheable(item: Any) -> bool:
             }:
                 return False
     return True
+
+
+def _list_cache_segment(values: Any) -> str:
+    if values is None:
+        return ""
+    if isinstance(values, str):
+        raw_items = values.split(",")
+    elif isinstance(values, (list, tuple, set)):
+        raw_items = list(values)
+    else:
+        return str(values)
+
+    items = {
+        item.strip()
+        for item in (str(item).strip() for item in raw_items)
+        if item.strip()
+    }
+    return ",".join(sorted(items))
 
 
 __all__ = [

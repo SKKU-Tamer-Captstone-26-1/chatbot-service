@@ -6,6 +6,9 @@ from chatbot_service.clients.recommendation_client import (
     StaticServerlessAuthTokenProvider,
     _channel_target,
     _load_generated_modules,
+    _set_diversity_mode_field,
+    _set_optional_string_field,
+    _set_repeated_string_field,
 )
 
 
@@ -207,3 +210,44 @@ async def test_grpc_recommendation_client_maps_venue_and_event_requests(monkeypa
     assert venue_call[1].budget_mode == pb2.BUDGET_MODE_SOFT
     assert event_call[1].event_type == pb2.RECOMMENDATION_EVENT_TYPE_CLICK
     assert event_call[1].metadata["surface"] == "chatbot"
+
+
+class _DummyRequest:
+    def __init__(self) -> None:
+        self.exclude_beverage_ids: list[str] = []
+        self.exclude_result_ids: list[str] = []
+        self.diversity_mode: int | None = None
+        self.session_context_id: str = ""
+
+
+def test_recommendation_client_helper_parses_filter_fields() -> None:
+    request = _DummyRequest()
+    _set_repeated_string_field(request, "exclude_beverage_ids", ["a", "b", "a", ""])
+    _set_repeated_string_field(request, "exclude_result_ids", "x, y,,z")
+    _set_optional_string_field(request, "session_context_id", "  conv-1  ")
+
+    assert request.exclude_beverage_ids == ["a", "b"]
+    assert request.exclude_result_ids == ["x", "y", "z"]
+    assert request.session_context_id == "conv-1"
+
+
+def test_recommendation_client_helper_tolerates_missing_diversity_enum() -> None:
+    request = _DummyRequest()
+
+    class DummyPb2:
+        pass
+
+    _set_diversity_mode_field(request, DummyPb2(), "diversity_mode", "EXPLORE")
+    assert request.diversity_mode is None
+
+
+def test_recommendation_client_helper_supports_explicit_diversity_mode_values() -> None:
+    request = _DummyRequest()
+
+    class DummyPb2:
+        DIVERSITY_MODE_EXPERIMENTAL = 17
+        DIVERSITY_MODE_UNSPECIFIED = 0
+        DIVERSITY_MODE_EXPLORE = 17
+
+    _set_diversity_mode_field(request, DummyPb2(), "diversity_mode", "EXPLORE")
+    assert request.diversity_mode == 17

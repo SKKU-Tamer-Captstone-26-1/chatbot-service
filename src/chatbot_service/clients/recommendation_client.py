@@ -99,7 +99,8 @@ class MetadataServerlessAuthTokenProvider:
     def _fetch_token_sync(self) -> str:
         query = urllib.parse.urlencode({"audience": self._audience, "format": "full"})
         request = urllib.request.Request(
-            f"http://metadata/computeMetadata/v1/instance/service-accounts/default/identity?{query}",
+            "http://metadata.google.internal/computeMetadata/v1/"
+            f"instance/service-accounts/default/identity?{query}",
             headers={"Metadata-Flavor": "Google"},
             method="GET",
         )
@@ -178,17 +179,35 @@ class GrpcRecommendationClient:
         **filters: Any,
     ) -> Any:
         pb2, stub = self._modules_and_stub()
+        request = pb2.GetBeverageRecommendationsRequest(
+            category=str(filters.get("category", "")),
+            limit=int(filters.get("limit") or 0),
+            budget_mode=_enum_value(
+                pb2,
+                str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
+                "BUDGET_MODE_UNSPECIFIED",
+            ),
+        )
+        _set_repeated_string_field(
+            request, "exclude_beverage_ids", filters.get("exclude_beverage_ids")
+        )
+        _set_repeated_string_field(
+            request, "exclude_result_ids", filters.get("exclude_result_ids")
+        )
+        _set_diversity_mode_field(
+            request,
+            pb2,
+            "diversity_mode",
+            filters.get("diversity_mode"),
+        )
+        _set_optional_string_field(
+            request,
+            "session_context_id",
+            filters.get("session_context_id"),
+        )
         try:
             response = await stub.GetBeverageRecommendations(
-                pb2.GetBeverageRecommendationsRequest(
-                    category=str(filters.get("category", "")),
-                    limit=int(filters.get("limit") or 0),
-                    budget_mode=_enum_value(
-                        pb2,
-                        str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
-                        "BUDGET_MODE_UNSPECIFIED",
-                    ),
-                ),
+                request,
                 metadata=await self._metadata(auth_metadata),
                 timeout=self._timeout_sec,
             )
@@ -206,20 +225,38 @@ class GrpcRecommendationClient:
         **filters: Any,
     ) -> Any:
         pb2, stub = self._modules_and_stub()
+        request = pb2.GetVenueRecommendationsRequest(
+            selected_beverage_id=str(filters.get("selected_beverage_id", "")),
+            lat=float(lat),
+            lng=float(lng),
+            radius_m=int(filters.get("radius_m") or 0),
+            limit=int(filters.get("limit") or 0),
+            budget_mode=_enum_value(
+                pb2,
+                str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
+                "BUDGET_MODE_UNSPECIFIED",
+            ),
+        )
+        _set_repeated_string_field(
+            request, "exclude_beverage_ids", filters.get("exclude_beverage_ids")
+        )
+        _set_repeated_string_field(
+            request, "exclude_result_ids", filters.get("exclude_result_ids")
+        )
+        _set_diversity_mode_field(
+            request,
+            pb2,
+            "diversity_mode",
+            filters.get("diversity_mode"),
+        )
+        _set_optional_string_field(
+            request,
+            "session_context_id",
+            filters.get("session_context_id"),
+        )
         try:
             response = await stub.GetVenueRecommendations(
-                pb2.GetVenueRecommendationsRequest(
-                    selected_beverage_id=str(filters.get("selected_beverage_id", "")),
-                    lat=float(lat),
-                    lng=float(lng),
-                    radius_m=int(filters.get("radius_m") or 0),
-                    limit=int(filters.get("limit") or 0),
-                    budget_mode=_enum_value(
-                        pb2,
-                        str(filters.get("budget_mode", "BUDGET_MODE_UNSPECIFIED")),
-                        "BUDGET_MODE_UNSPECIFIED",
-                    ),
-                ),
+                request,
                 metadata=await self._metadata(auth_metadata),
                 timeout=self._timeout_sec,
             )
@@ -355,3 +392,76 @@ def _message_to_dict(message: Any) -> dict[str, Any]:
 
 def _enum_value(module: Any, name: str, default: str) -> int:
     return int(getattr(module, name, getattr(module, default)))
+
+
+def _as_string_list(value: Any) -> list[str]:
+    raw_items: list[str]
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw_items = [item.strip() for item in value.split(",")]
+    elif isinstance(value, (list, tuple, set)):
+        raw_items = [str(item).strip() for item in value]
+    else:
+        return []
+
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
+def _set_repeated_string_field(
+    request: Any,
+    name: str,
+    value: Any,
+) -> None:
+    if not hasattr(request, name):
+        return
+    values = _as_string_list(value)
+    field = getattr(request, name)
+    for item in values:
+        field.append(item)
+
+
+def _set_optional_string_field(request: Any, name: str, value: Any) -> None:
+    if not hasattr(request, name):
+        return
+    text = str(value or "").strip()
+    if not text:
+        return
+    setattr(request, name, text)
+
+
+def _set_diversity_mode_field(
+    request: Any,
+    pb2: Any,
+    name: str,
+    value: Any,
+) -> None:
+    if not hasattr(request, name):
+        return
+    if value is None:
+        return
+    if isinstance(value, int):
+        setattr(request, name, int(value))
+        return
+    mode = str(value).strip()
+    if not mode:
+        return
+    normalized = mode.replace(" ", "_").upper()
+    candidates = [normalized]
+    if not normalized.startswith("DIVERSITY_MODE_"):
+        candidates.append(f"DIVERSITY_MODE_{normalized}")
+
+    for candidate in candidates:
+        if hasattr(pb2, candidate):
+            setattr(request, name, int(getattr(pb2, candidate)))
+            return
+
+    if hasattr(pb2, "DIVERSITY_MODE_UNSPECIFIED"):
+        setattr(request, name, int(pb2.DIVERSITY_MODE_UNSPECIFIED))

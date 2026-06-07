@@ -27,6 +27,7 @@ stable.
 | 011 | `011-production-launch.md` | Production rollout, monitoring, and rollback |
 | 012 | `012-on-device-llm.md` | Optional Android on-device LLM optimization |
 | 013 | `013-rag-rule-based-direction.md` | RAG + rule-based recommendation MVP direction |
+| 014 | `014-production-chatbot-routing-diversity.md` | Production routing, venue intent, and alternative recommendation diversity |
 
 ## Non-Negotiable Rules
 
