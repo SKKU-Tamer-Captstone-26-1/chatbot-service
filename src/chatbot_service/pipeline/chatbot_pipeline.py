@@ -4,13 +4,18 @@ import hashlib
 import json
 import logging
 import time
+from dataclasses import dataclass, field, replace
 
 from chatbot_service.cache import Cache
+from chatbot_service.domain.intents import ChatbotIntent
 from chatbot_service.domain.schemas import CallerContext, ChatbotAnswer, ChatbotRequest
 from chatbot_service.metrics import MetricsRecorder
 from chatbot_service.pipeline.context_builder import RecommendationContextBuilder
 from chatbot_service.pipeline.guardrails import Guardrails
-from chatbot_service.pipeline.intent_classifier import IntentClassifier
+from chatbot_service.pipeline.intent_classifier import (
+    IntentClassifier,
+    is_diverse_beverage_request,
+)
 from chatbot_service.pipeline.llm_adapter import LLMAdapter, LLMGenerationError
 from chatbot_service.pipeline.prompt_builder import PromptBuilder
 from chatbot_service.pipeline.response_builder import ResponseBuilder
@@ -53,6 +58,7 @@ class ChatbotPipeline:
         status = "error"
         try:
             intent = self._intent_classifier.classify(request.message)
+            request = await self._apply_conversation_context(request, caller, intent)
             context = await self._context_builder.build(intent, request, caller)
 
             guarded = self._guardrails.enforce(intent, context)
@@ -129,6 +135,62 @@ class ChatbotPipeline:
             return answer
         finally:
             self._metrics.observe("chatbot.ask", time.perf_counter() - started_at, status=status)
+
+    async def _apply_conversation_context(
+        self,
+        request: ChatbotRequest,
+        caller: CallerContext,
+        intent: ChatbotIntent,
+    ) -> ChatbotRequest:
+        if self._conversation_repository is None:
+            return request
+        if not request.conversation_id:
+            return request
+
+        context_hints = await _conversation_context_for_request(
+            repository=self._conversation_repository,
+            user_id=caller.user_id,
+            conversation_id=request.conversation_id,
+            request_message=request,
+            intent=intent,
+        )
+
+        client_context = dict(request.client_context)
+
+        if context_hints.session_context_id:
+            client_context["session_context_id"] = context_hints.session_context_id
+
+        selected_beverage_id = request.selected_beverage_id
+        if (
+            _requires_venue_selected_beverage(intent)
+            and not request.selected_beverage_id
+            and context_hints.selected_beverage_id
+        ):
+            selected_beverage_id = context_hints.selected_beverage_id
+
+        if not is_diverse_beverage_request(request.message):
+            return replace(
+                request,
+                selected_beverage_id=selected_beverage_id,
+                client_context=client_context,
+            )
+
+        if (
+            not request.client_context.get("exclude_beverage_ids")
+            and context_hints.previous_beverage_ids
+        ):
+            client_context["exclude_beverage_ids"] = context_hints.previous_beverage_ids
+        if (
+            not request.client_context.get("exclude_result_ids")
+            and context_hints.previous_result_ids
+        ):
+            client_context["exclude_result_ids"] = context_hints.previous_result_ids
+
+        return replace(
+            request,
+            selected_beverage_id=selected_beverage_id,
+            client_context=client_context,
+        )
 
     async def _build_context_json(self, context: object) -> tuple[str, str]:
         context_hash = _context_hash(context)
@@ -249,6 +311,118 @@ class ChatbotPipeline:
                 "llm_latency_ms": round(llm_latency_sec * 1000, 2),
             },
         )
+
+
+def _requires_venue_selected_beverage(intent: ChatbotIntent) -> bool:
+    return str(intent.value) in {
+        "FIND_NEARBY_VENUE",
+        "COMPARE_PURCHASE_OPTIONS",
+    }
+
+
+async def _conversation_context_for_request(
+    *,
+    repository,
+    user_id: str,
+    conversation_id: str,
+    request_message: ChatbotRequest,
+    intent: ChatbotIntent,
+) -> _ConversationContextHints:
+    try:
+        messages, _ = await repository.get_messages(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            page_size=25,
+            page_token="",
+        )
+    except Exception:
+        return _ConversationContextHints()
+
+    return _build_conversation_context_hints(
+        request=request_message,
+        intent=intent,
+        messages=messages,
+    )
+
+
+def _build_conversation_context_hints(
+    *,
+    request: ChatbotRequest,
+    intent: ChatbotIntent,
+    messages: list[dict],
+) -> _ConversationContextHints:
+    previous_beverage_ids: list[str] = []
+    previous_result_ids: list[str] = []
+    selected_beverage_id = ""
+
+    for message in reversed(messages):
+        if str(message.get("role", "")).upper() not in {
+            "ASSISTANT",
+            "CHATBOT_MESSAGE_ROLE_ASSISTANT",
+        }:
+            continue
+        metadata = message.get("metadata") if isinstance(message, dict) else {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        used_sources = metadata.get("used_sources")
+        if isinstance(used_sources, dict):
+            _extend_unique(previous_beverage_ids, used_sources.get("beverage_ids", []))
+            _extend_unique(previous_result_ids, used_sources.get("beverage_result_ids", []))
+
+        for card in metadata.get("cards", []) if isinstance(metadata.get("cards"), list) else []:
+            if not isinstance(card, dict):
+                continue
+            detail = card.get("detail")
+            if not isinstance(detail, dict):
+                continue
+            beverage_card = detail.get("beverage_recommendation")
+            if not isinstance(beverage_card, dict):
+                continue
+            _extend_unique(previous_beverage_ids, beverage_card.get("beverage_id", ""))
+            _extend_unique(previous_result_ids, beverage_card.get("result_id", ""))
+
+        if not selected_beverage_id:
+            selected_beverage_id = previous_beverage_ids[0] if previous_beverage_ids else ""
+
+        if previous_beverage_ids and previous_result_ids:
+            break
+
+    if not _requires_venue_selected_beverage(intent):
+        selected_beverage_id = ""
+
+    return _ConversationContextHints(
+        previous_beverage_ids=previous_beverage_ids,
+        previous_result_ids=previous_result_ids,
+        selected_beverage_id=selected_beverage_id,
+        session_context_id=request.conversation_id,
+    )
+
+
+def _extend_unique(values: list[str], source: object) -> None:
+    for item in _to_string_list(source):
+        item = item.strip()
+        if not item or item in values:
+            continue
+        values.append(item)
+
+
+def _to_string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+@dataclass(frozen=True)
+class _ConversationContextHints:
+    previous_beverage_ids: list[str] = field(default_factory=list)
+    previous_result_ids: list[str] = field(default_factory=list)
+    selected_beverage_id: str = ""
+    session_context_id: str = ""
 
 
 def _context_hash(context: object) -> str:
