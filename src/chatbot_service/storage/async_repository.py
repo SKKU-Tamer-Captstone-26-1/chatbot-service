@@ -64,7 +64,7 @@ class AsyncConversationRepository:
 
         stable_conversation_id = conversation_id or str(uuid4())
         self._known_conversations.add((user_id, stable_conversation_id))
-        self._enqueue(
+        fallback_id = await self._enqueue(
             _PersistenceOperation(
                 name="create_or_get_conversation",
                 factory=lambda: self._inner.create_or_get_conversation(
@@ -75,6 +75,9 @@ class AsyncConversationRepository:
                 ),
             )
         )
+        if fallback_id:
+            stable_conversation_id = str(fallback_id)
+            self._known_conversations.add((user_id, stable_conversation_id))
         return stable_conversation_id
 
     async def append_message(
@@ -86,7 +89,7 @@ class AsyncConversationRepository:
         message_id: str | None = None,
     ) -> str:
         stable_message_id = message_id or str(uuid4())
-        self._enqueue(
+        fallback_message_id = await self._enqueue(
             _PersistenceOperation(
                 name="append_message",
                 factory=lambda: self._inner.append_message(
@@ -98,10 +101,12 @@ class AsyncConversationRepository:
                 ),
             )
         )
+        if fallback_message_id:
+            stable_message_id = str(fallback_message_id)
         return stable_message_id
 
     async def store_retrieval_trace(self, message_id: str, trace: dict[str, Any]) -> None:
-        self._enqueue(
+        await self._enqueue(
             _PersistenceOperation(
                 name="store_retrieval_trace",
                 factory=lambda: self._inner.store_retrieval_trace(message_id, trace),
@@ -155,17 +160,23 @@ class AsyncConversationRepository:
         if close is not None:
             await close()
 
-    def _enqueue(self, operation: _PersistenceOperation) -> None:
+    async def _enqueue(self, operation: _PersistenceOperation) -> Any | None:
         self._ensure_worker()
         try:
             self._queue.put_nowait(operation)
             self._metrics.increment("storage.queue_enqueued", operation=operation.name)
             self._metrics.observe("storage.queue_depth", float(self._queue.qsize()))
+            return None
         except asyncio.QueueFull:
             self._metrics.increment("storage.queue_full", operation=operation.name)
             self._metrics.observe("storage.queue_depth", float(self._queue.qsize()))
-            self.dead_letters.append((operation.name, "queue_full"))
-            LOGGER.error("chatbot persistence queue is full; operation=%s", operation.name)
+            self._metrics.increment("storage.queue_full_fallback", operation=operation.name)
+            self.dead_letters.append((operation.name, "queue_full_fallback"))
+            LOGGER.warning(
+                "chatbot persistence queue is full; executing persistence operation synchronously: operation=%s",
+                operation.name,
+            )
+            return await self._run_with_retry(operation)
 
     def _ensure_worker(self) -> None:
         if self._worker_task is None or self._worker_task.done():
@@ -182,13 +193,13 @@ class AsyncConversationRepository:
                 self._queue.task_done()
                 self._metrics.observe("storage.queue_depth", float(self._queue.qsize()))
 
-    async def _run_with_retry(self, operation: _PersistenceOperation) -> None:
+    async def _run_with_retry(self, operation: _PersistenceOperation) -> Any | None:
         for attempt in range(1, self._retry_attempts + 1):
             try:
                 with self._metrics.timer("storage.write", operation=operation.name):
-                    await operation.factory()
+                    result = await operation.factory()
                 self._metrics.increment("storage.write_success", operation=operation.name)
-                return
+                return result
             except Exception as exc:
                 if attempt >= self._retry_attempts:
                     self._metrics.increment("storage.write_dead_letter", operation=operation.name)
@@ -197,9 +208,10 @@ class AsyncConversationRepository:
                         "chatbot persistence operation failed permanently; operation=%s",
                         operation.name,
                     )
-                    return
+                    return None
                 self._metrics.increment("storage.write_retry", operation=operation.name)
                 await asyncio.sleep(0)
+        return None
 
 
 __all__ = ["AsyncConversationRepository"]

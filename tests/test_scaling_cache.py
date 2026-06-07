@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 import pytest
 
@@ -407,3 +408,87 @@ async def test_stale_venue_facts_preserve_service_result_but_are_not_cached():
     assert answer.status == "ANSWERED"
     assert answer.cards[0].title == "오래된 장소"
     assert inner.venue_calls == 2
+
+
+@pytest.mark.anyio
+async def test_async_repository_falls_back_to_sync_when_queue_is_full(monkeypatch):
+    class CountingInMemoryRepository(InMemoryConversationRepository):
+        def __init__(self) -> None:
+            super().__init__()
+            self.create_calls = 0
+            self.append_calls = 0
+
+        async def create_or_get_conversation(
+            self,
+            user_id: str,
+            conversation_id: str | None,
+            screen_context: str = "SCREEN_CONTEXT_UNSPECIFIED",
+            metadata: dict[str, Any] | None = None,
+        ) -> str:
+            self.create_calls += 1
+            return await super().create_or_get_conversation(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                screen_context=screen_context,
+                metadata=metadata,
+            )
+
+        async def append_message(
+            self,
+            conversation_id: str,
+            role: str,
+            content: str,
+            metadata: dict[str, Any],
+            message_id: str | None = None,
+        ) -> str:
+            self.append_calls += 1
+            return await super().append_message(
+                conversation_id=conversation_id,
+                role=role,
+                content=content,
+                metadata=metadata,
+                message_id=message_id,
+            )
+
+    def always_full(_: object) -> None:
+        raise asyncio.QueueFull
+
+    inner = CountingInMemoryRepository()
+    metrics = MetricsRecorder()
+    repository = AsyncConversationRepository(inner, queue_max_size=1, metrics=metrics)
+    original_put_nowait = repository._queue.put_nowait
+
+    try:
+        # Force fallback path deterministically without depending on timing.
+        monkeypatch.setattr(repository._queue, "put_nowait", always_full)
+
+        conversation_id = await repository.create_or_get_conversation(
+            user_id="user_123",
+            conversation_id=None,
+            screen_context="SCREEN_CONTEXT_HOME",
+        )
+        message_id = await repository.append_message(
+            conversation_id=conversation_id,
+            role="ASSISTANT",
+            content="답변",
+            metadata={"intent": "RECOMMEND_BEVERAGE"},
+        )
+    finally:
+        repository._queue.put_nowait = original_put_nowait
+        await repository.close()
+
+    assert inner.create_calls == 1
+    assert inner.append_calls == 1
+    assert conversation_id in inner.conversations
+    assert message_id in inner.messages
+    assert ("create_or_get_conversation", "queue_full_fallback") in repository.dead_letters
+    assert ("append_message", "queue_full_fallback") in repository.dead_letters
+    counters = metrics.snapshot()["counters"]
+    assert counters["storage.queue_full|operation=create_or_get_conversation"] == 1
+    assert counters["storage.queue_full|operation=append_message"] == 1
+    assert (
+        counters["storage.queue_full_fallback|operation=create_or_get_conversation"] == 1
+    )
+    assert (
+        counters["storage.queue_full_fallback|operation=append_message"] == 1
+    )
