@@ -34,6 +34,7 @@ stable.
 | 018 | `018-diversity-exhaustion-hardening.md` | Prevent repetitive follow-up responses when no new recommendation candidates are returned |
 | 019 | `019-guarded-intent-classifier-and-korean-eval.md` | Score-based guarded intent routing and expanded Korean fallback evaluation |
 | 020 | `020-observability-metrics-hardening.md` | Operational metrics for intent, fallback, unavailable, and LLM failure rates |
+| 021 | `021-db-retention-privacy-policy.md` | Production retention, privacy, deletion, export, and training approval policy |
 
 ## Non-Negotiable Rules
 
