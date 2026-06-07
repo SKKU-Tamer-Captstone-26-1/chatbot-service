@@ -511,3 +511,57 @@ async def test_pipeline_auto_uses_conversation_candidates_for_diverse_beverage_r
     _, filters = recommendation_client.beverage_calls[0]
     assert filters["exclude_beverage_ids"] == ["bev_prev_a", "bev_prev_b"]
     assert filters["exclude_result_ids"] == ["bev_prev_a_1", "bev_prev_b_1"]
+
+
+@pytest.mark.anyio
+async def test_pipeline_resolves_selected_beverage_from_client_context_for_venue():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(
+            message="근처 바 추천해줘",
+            lat=37.5,
+            lng=127.0,
+            radius_m=1500,
+            client_context={"selected_beverage_id": "bev_context"},
+        ),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.ANSWERED
+    _, _, _, filters = recommendation_client.venue_calls[0]
+    assert filters["selected_beverage_id"] == "bev_context"
+
+
+@pytest.mark.anyio
+async def test_pipeline_forwards_venue_filters_for_diversity_request():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+    answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
+        ChatbotRequest(
+            message="다른 장소 추천해줘",
+            lat=37.5,
+            lng=127.0,
+            radius_m=1500,
+            selected_beverage_id="bev_1",
+            client_context={
+                "previous_beverage_ids": ["bev_2"],
+                "previous_result_ids": ["venue_result_2"],
+                "session_context_id": "conv-1",
+            },
+        ),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    _, _, _, filters = recommendation_client.venue_calls[0]
+    assert filters["exclude_beverage_ids"] == ["bev_2"]
+    assert filters["exclude_result_ids"] == ["venue_result_2"]
+    assert filters["session_context_id"] == "conv-1"
+    assert filters["diversity_mode"] == "DIFFERENT_STYLE"
+    assert answer.status == ChatbotResponseStatus.ANSWERED

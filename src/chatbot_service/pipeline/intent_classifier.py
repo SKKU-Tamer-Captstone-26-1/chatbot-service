@@ -13,11 +13,13 @@ class IntentClassifier:
         text = message.strip().lower()
         if not text:
             return ChatbotIntent.INSUFFICIENT_DATA
-        if any(word in text for word in _COMPARISON_KEYWORDS):
+        if _contains_any(text, _COMPARISON_KEYWORDS):
             return ChatbotIntent.COMPARE_PURCHASE_OPTIONS
-        if any(word in text for word in _VENUE_KEYWORDS):
+        if _contains_any(text, _VENUE_KEYWORDS):
             return ChatbotIntent.FIND_NEARBY_VENUE
-        if any(word in text for word in _BEVERAGE_KEYWORDS):
+        if _contains_any(text, _BEVERAGE_KEYWORDS) or _contains_any(
+            text, _BEVERAGE_ALT_KEYWORDS
+        ):
             return ChatbotIntent.RECOMMEND_BEVERAGE
         return ChatbotIntent.OUT_OF_SCOPE
 
@@ -40,6 +42,10 @@ def infer_beverage_diversity_mode(message: str) -> str:
     if any(word in text for word in _DIFFERENT_STYLE_KEYWORDS):
         return "DIFFERENT_STYLE"
     return "DIFFERENT_STYLE" if is_diverse_beverage_request(text) else ""
+
+
+def _contains_any(text: str, words: tuple[str, ...]) -> bool:
+    return any(word in text for word in words)
 
 
 _COMPARISON_KEYWORDS = (
@@ -94,7 +100,16 @@ _BEVERAGE_KEYWORDS = (
     "보드카",
 )
 
+_BEVERAGE_ALT_KEYWORDS = (
+    "주류",
+    "한잔",
+    "한잔할",
+    "한잔할래",
+)
+
 _DIVERSE_BEVERAGE_KEYWORDS = (
+    "다른 장소",
+    "다른 곳",
     "다른 술",
     "다른 추천",
     "다른거",

@@ -188,10 +188,33 @@ class RecommendationContextBuilder:
         profile_status: str,
         profile_revision: int,
     ) -> GroundedContext:
+        selected_beverage_id = _first_non_empty(
+            request.selected_beverage_id,
+            request.client_context.get("selected_beverage_id"),
+            request.client_context.get("beverage_id"),
+            request.client_context.get("selected_beverage"),
+        )
+        lat = _first_non_none(
+            request.lat,
+            request.client_context.get("lat"),
+            request.client_context.get("latitude"),
+        )
+        lng = _first_non_none(
+            request.lng,
+            request.client_context.get("lng"),
+            request.client_context.get("longitude"),
+        )
+        radius_m = _first_non_none(
+            request.radius_m,
+            request.client_context.get("radius_m"),
+            request.client_context.get("radius"),
+        )
+
+        venue_filters = _build_venue_request_filters(request, radius_m=radius_m)
         missing: list[str] = []
-        if request.lat is None or request.lng is None:
+        if lat is None or lng is None:
             missing.append("detailed_location")
-        if not request.selected_beverage_id:
+        if not _has_text(selected_beverage_id):
             missing.append("selected_beverage_id")
         if missing:
             return GroundedContext(intent=intent.value, missing_facts=missing)
@@ -199,13 +222,17 @@ class RecommendationContextBuilder:
         try:
             response = await self._recommendation_client.get_venue_recommendations(
                 auth_metadata,
-                selected_beverage_id=request.selected_beverage_id,
-                lat=request.lat,
-                lng=request.lng,
-                radius_m=request.radius_m,
+                selected_beverage_id=str(selected_beverage_id),
+                lat=float(lat),
+                lng=float(lng),
+                radius_m=venue_filters["radius_m"],
                 limit=request.venue_limit,
                 budget_mode=request.budget_mode,
                 profile_revision=profile_revision,
+                exclude_beverage_ids=venue_filters["exclude_beverage_ids"],
+                exclude_result_ids=venue_filters["exclude_result_ids"],
+                diversity_mode=venue_filters["diversity_mode"],
+                session_context_id=venue_filters["session_context_id"],
             )
         except RecommendationClientError:
             return GroundedContext(
@@ -275,6 +302,49 @@ def _build_beverage_request_filters(request: ChatbotRequest) -> dict[str, Any]:
     }
 
 
+def _build_venue_request_filters(
+    request: ChatbotRequest,
+    radius_m: Any | None = None,
+) -> dict[str, Any]:
+    return {
+        "radius_m": _to_int(
+            _first_non_none(
+                radius_m,
+                request.client_context.get("radius_m"),
+                request.client_context.get("radius"),
+                request.radius_m,
+                0,
+            ),
+            0,
+        ),
+        "exclude_beverage_ids": _to_string_list(
+            _first_non_none(
+                request.client_context.get("exclude_beverage_ids"),
+                request.client_context.get("previous_beverage_ids"),
+                request.client_context.get("beverage_ids"),
+            )
+        ),
+        "exclude_result_ids": _to_string_list(
+            _first_non_none(
+                request.client_context.get("exclude_result_ids"),
+                request.client_context.get("previous_result_ids"),
+                request.client_context.get("result_ids"),
+            )
+        ),
+        "diversity_mode": _infer_beverage_diversity_mode(
+            request.client_context.get("diversity_mode"),
+            request.message,
+        ),
+        "session_context_id": str(
+            _first_non_none(
+                request.client_context.get("session_context_id"),
+                request.conversation_id,
+            )
+            or ""
+        ).strip(),
+    }
+
+
 def _infer_beverage_diversity_mode(client_mode: Any, message: str) -> str:
     if is_diverse_beverage_request(message):
         return infer_beverage_diversity_mode(message)
@@ -288,6 +358,31 @@ def _first_non_none(*values: Any) -> Any:
         if value is not None:
             return value
     return None
+
+
+def _first_non_empty(*values: Any) -> Any:
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        return value
+    return None
+
+
+def _has_text(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
+
+
+def _to_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _to_string_list(value: Any) -> list[str]:
