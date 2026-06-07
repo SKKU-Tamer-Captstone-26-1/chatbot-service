@@ -170,6 +170,7 @@ class PostgresConversationRepository:
                     m.refused,
                     m.refusal_reason,
                     m.metadata_json,
+                    m.metadata_json AS metadata,
                     m.created_at
                 FROM chatbot_messages m
                 JOIN chatbot_conversations c ON c.id = m.conversation_id

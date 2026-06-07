@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 from chatbot_service.cache import Cache
 from chatbot_service.domain.intents import ChatbotIntent
@@ -395,7 +396,7 @@ def _build_conversation_context_hints(
             "CHATBOT_MESSAGE_ROLE_ASSISTANT",
         }:
             continue
-        metadata = message.get("metadata") if isinstance(message, dict) else {}
+        metadata = _extract_message_metadata(message)
         if not isinstance(metadata, dict):
             metadata = {}
 
@@ -438,6 +439,23 @@ def _build_conversation_context_hints(
         session_context_id=request.conversation_id,
         last_assistant_intent=last_assistant_intent,
     )
+
+
+def _extract_message_metadata(message: dict[str, Any]) -> dict[str, Any] | None:
+    metadata = message.get("metadata")
+    if isinstance(metadata, dict):
+        return metadata
+
+    metadata_json = message.get("metadata_json")
+    if isinstance(metadata_json, dict):
+        return metadata_json
+    if isinstance(metadata_json, str):
+        try:
+            decoded = json.loads(metadata_json)
+        except json.JSONDecodeError:
+            return None
+        return decoded if isinstance(decoded, dict) else None
+    return None
 
 
 def _extract_assistant_intent(value: object) -> ChatbotIntent | None:

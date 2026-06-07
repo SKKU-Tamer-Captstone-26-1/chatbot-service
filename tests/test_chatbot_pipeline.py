@@ -730,3 +730,89 @@ async def test_pipeline_auto_fills_selected_beverage_from_purchase_option_card()
     assert answer.status == ChatbotResponseStatus.ANSWERED
     _, _, _, filters = recommendation_client.venue_calls[0]
     assert filters["selected_beverage_id"] == "bev_purchase"
+
+
+@pytest.mark.anyio
+async def test_pipeline_reads_conversation_context_metadata_json_from_storage_rows():
+    class MetadataJsonConversationRepository:
+        def __init__(self, messages: list[dict[str, object]]) -> None:
+            self._messages = messages
+
+        async def create_or_get_conversation(
+            self,
+            user_id: str,
+            conversation_id: str | None,
+            screen_context: str = "SCREEN_CONTEXT_UNSPECIFIED",
+            metadata: dict[str, object] | None = None,
+        ) -> str:
+            return conversation_id or "conversation_1"
+
+        async def append_message(
+            self,
+            conversation_id: str,
+            role: str,
+            content: str,
+            metadata: dict[str, object],
+            message_id: str | None = None,
+        ) -> str:
+            return message_id or "message_1"
+
+        async def store_retrieval_trace(self, message_id: str, trace: dict[str, object]) -> None:
+            return None
+
+        async def get_messages(
+            self,
+            user_id: str,
+            conversation_id: str,
+            page_size: int,
+            page_token: str,
+        ) -> tuple[list[dict[str, object]], str]:
+            return list(self._messages), ""
+
+    recommendation_client = FakeRecommendationClient()
+    llm = RecordingLLM()
+
+    repository = MetadataJsonConversationRepository(
+        [
+            {
+                "message_id": "message_123",
+                "role": "ASSISTANT",
+                "metadata_json": {
+                    "used_sources": {
+                        "beverage_ids": ["bev_prev_a", "bev_prev_b"],
+                        "beverage_result_ids": ["result_prev_a", "result_prev_b"],
+                    },
+                    "cards": [
+                        {
+                            "card_type": "CHATBOT_CARD_TYPE_BEVERAGE_RECOMMENDATION",
+                            "detail": {
+                                "beverage_recommendation": {
+                                    "beverage_id": "bev_prev_a",
+                                    "result_id": "result_prev_a",
+                                }
+                            },
+                        }
+                    ],
+                },
+            }
+        ]
+    )
+
+    await _pipeline(
+        llm,
+        repository=repository,
+        recommendation_client=recommendation_client,
+    ).ask(
+        ChatbotRequest(
+            message="다른 술 추천해줘",
+            conversation_id="conversation_1",
+        ),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    _, filters = recommendation_client.beverage_calls[0]
+    assert sorted(filters["exclude_beverage_ids"]) == ["bev_prev_a", "bev_prev_b"]
+    assert sorted(filters["exclude_result_ids"]) == ["result_prev_a", "result_prev_b"]
