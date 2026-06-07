@@ -66,6 +66,19 @@ class Guardrails:
                 follow_up_questions=_missing_venue_follow_ups(context.missing_facts),
             )
         if _has_empty_recommendations(context):
+            if _has_diversity_candidate_exhaustion(context):
+                return ChatbotAnswer(
+                    intent=ChatbotIntent.INSUFFICIENT_DATA,
+                    answer=(
+                        "요청하신 조건에서 다른 추천 후보를 더 찾지 못했어요. "
+                        "조건을 바꾸거나 잠시 뒤에 다시 요청해 주세요."
+                    ),
+                    confidence=1.0,
+                    status=ChatbotResponseStatus.INSUFFICIENT_DATA,
+                    refused=False,
+                    refusal_reason="INSUFFICIENT_DATA",
+                    missing_facts=context.missing_facts,
+                )
             return ChatbotAnswer(
                 intent=ChatbotIntent.INSUFFICIENT_DATA,
                 answer=(
@@ -104,6 +117,18 @@ def _has_empty_recommendations(context: GroundedContext) -> bool:
         for fact in (
             "beverage_recommendation_candidates",
             "fresh_venue_recommendation_candidates",
+            "beverage_recommendation_candidates_exhausted",
+            "venue_recommendation_candidates_exhausted",
+        )
+    )
+
+
+def _has_diversity_candidate_exhaustion(context: GroundedContext) -> bool:
+    return any(
+        fact in context.missing_facts
+        for fact in (
+            "beverage_recommendation_candidates_exhausted",
+            "venue_recommendation_candidates_exhausted",
         )
     )
 

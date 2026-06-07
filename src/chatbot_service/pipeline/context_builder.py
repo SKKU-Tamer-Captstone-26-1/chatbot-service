@@ -155,6 +155,20 @@ class RecommendationContextBuilder:
                 missing_facts=["beverage_recommendation_candidates"],
             )
 
+        if _diversity_exhausted(
+            request_filters["diversity_mode"],
+            recommendations,
+            request_filters["exclude_result_ids"],
+        ):
+            return GroundedContext(
+                intent=ChatbotIntent.RECOMMEND_BEVERAGE.value,
+                facts={
+                    "profile_status": profile_status,
+                    "profile_revision": profile_revision,
+                },
+                missing_facts=["beverage_recommendation_candidates_exhausted"],
+            )
+
         request_id = str(_read_field(response, "request_id", ""))
         used_sources = _build_used_sources(
             profile_status=profile_status,
@@ -244,6 +258,20 @@ class RecommendationContextBuilder:
             return GroundedContext(
                 intent=intent.value,
                 missing_facts=["fresh_venue_recommendation_candidates"],
+            )
+
+        if _diversity_exhausted(
+            venue_filters["diversity_mode"],
+            recommendations,
+            venue_filters["exclude_result_ids"],
+        ):
+            return GroundedContext(
+                intent=intent.value,
+                facts={
+                    "profile_status": profile_status,
+                    "profile_revision": profile_revision,
+                },
+                missing_facts=["venue_recommendation_candidates_exhausted"],
             )
 
         request_id = str(_read_field(response, "request_id", ""))
@@ -516,6 +544,34 @@ def _required_warnings(recommendations: list[Any]) -> list[str]:
     if any(_requires_price_or_experience_warning(item) for item in recommendations):
         return [PRICE_EXPERIENCE_WARNING]
     return []
+
+
+def _diversity_exhausted(
+    diversity_mode: str,
+    recommendations: list[Any],
+    excluded_result_ids: list[str],
+) -> bool:
+    if not diversity_mode:
+        return False
+    if not excluded_result_ids:
+        return False
+    if not recommendations:
+        return False
+    returned = {
+        str(_read_field(item, "result_id", "")).strip() for item in recommendations
+    }
+    returned.discard("")
+    if not returned:
+        return False
+    excluded = {_normalize_id(value) for value in excluded_result_ids}
+    excluded.discard("")
+    if not excluded:
+        return False
+    return returned.issubset(excluded)
+
+
+def _normalize_id(value: Any) -> str:
+    return str(value).strip()
 
 
 def _requires_price_or_experience_warning(item: Any) -> bool:

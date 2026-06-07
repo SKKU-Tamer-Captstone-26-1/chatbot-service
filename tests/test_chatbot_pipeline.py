@@ -414,6 +414,70 @@ async def test_pipeline_forwards_diversity_context_on_follow_up_request():
 
 
 @pytest.mark.anyio
+async def test_pipeline_no_new_beverage_candidates_for_diverse_request_returns_fallback():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+
+    answer = await _pipeline(
+        llm,
+        recommendation_client=recommendation_client,
+    ).ask(
+        ChatbotRequest(
+            message="다른 술 추천해줘",
+            client_context={
+                "previous_beverage_ids": ["bev_1", "bev_2"],
+                "previous_result_ids": ["bev_result_1", "bev_result_2"],
+                "session_context_id": "conv-1",
+            },
+        ),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
+    assert answer.intent == "INSUFFICIENT_DATA"
+    assert answer.missing_facts == ["beverage_recommendation_candidates_exhausted"]
+    assert "다른 추천 후보" in answer.answer
+    assert llm.calls == []
+
+
+@pytest.mark.anyio
+async def test_pipeline_no_new_venue_candidates_for_diverse_request_returns_fallback():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+
+    answer = await _pipeline(
+        llm,
+        recommendation_client=recommendation_client,
+    ).ask(
+        ChatbotRequest(
+            message="다른 장소 추천해줘",
+            lat=37.5,
+            lng=127.0,
+            radius_m=1500,
+            selected_beverage_id="bev_1",
+            client_context={
+                "previous_result_ids": ["venue_result_1", "venue_result_2"],
+                "previous_beverage_ids": ["bev_1"],
+                "session_context_id": "conv-1",
+            },
+        ),
+        CallerContext(
+            user_id="user_123",
+            metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+        ),
+    )
+
+    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
+    assert answer.intent == "INSUFFICIENT_DATA"
+    assert answer.missing_facts == ["venue_recommendation_candidates_exhausted"]
+    assert "다른 추천 후보" in answer.answer
+    assert llm.calls == []
+
+
+@pytest.mark.anyio
 async def test_pipeline_auto_fills_selected_beverage_from_conversation_for_venue_requests():
     repository = InMemoryConversationRepository()
     conversation_id = await repository.create_or_get_conversation(
