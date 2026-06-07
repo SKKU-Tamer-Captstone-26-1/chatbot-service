@@ -25,3 +25,10 @@ def test_auth_metadata_resolver_rejects_missing_user_id(monkeypatch):
 
     with pytest.raises(AuthMetadataError):
         AuthMetadataResolver(config).resolve({"authorization": "Bearer token"})
+
+
+def test_auth_metadata_resolver_rejects_missing_authorization(monkeypatch):
+    config = load_config()
+
+    with pytest.raises(AuthMetadataError):
+        AuthMetadataResolver(config).resolve({"x-user-id": "user_123"})

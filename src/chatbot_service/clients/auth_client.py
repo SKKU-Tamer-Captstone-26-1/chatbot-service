@@ -36,6 +36,10 @@ class AuthMetadataResolver:
             raise AuthMetadataError(
                 f"Missing authenticated user metadata: {self._user_id_key}"
             )
+        if not authorization:
+            raise AuthMetadataError(
+                f"Missing authenticated authorization metadata: {self._authorization_key}"
+            )
         return CallerContext(
             user_id=user_id,
             authorization=authorization,

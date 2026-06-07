@@ -187,7 +187,9 @@ async def test_get_conversation_and_feedback_are_scoped_to_authenticated_user():
 
     conversation = await servicer.GetConversation(
         pb2.GetConversationRequest(conversation_id=conversation_id),
-        FakeContext(metadata=[("x-user-id", "user_123")]),
+        FakeContext(
+            metadata=[("x-user-id", "user_123"), ("authorization", "Bearer token")]
+        ),
     )
     feedback = await servicer.RecordChatbotFeedback(
         pb2.RecordChatbotFeedbackRequest(
@@ -195,7 +197,9 @@ async def test_get_conversation_and_feedback_are_scoped_to_authenticated_user():
             event_type=pb2.CHATBOT_FEEDBACK_EVENT_TYPE_HELPFUL,
             idempotency_key="idem-1",
         ),
-        FakeContext(metadata=[("x-user-id", "user_123")]),
+        FakeContext(
+            metadata=[("x-user-id", "user_123"), ("authorization", "Bearer token")]
+        ),
     )
 
     assert conversation.messages[0].message_id == message_id
@@ -205,18 +209,22 @@ async def test_get_conversation_and_feedback_are_scoped_to_authenticated_user():
 
     other_user_conversation = await servicer.GetConversation(
         pb2.GetConversationRequest(conversation_id=conversation_id),
-        FakeContext(metadata=[("x-user-id", "other_user")]),
+        FakeContext(
+            metadata=[("x-user-id", "other_user"), ("authorization", "Bearer token")]
+        ),
     )
     assert list(other_user_conversation.messages) == []
 
     with pytest.raises(AbortError) as exc_info:
         await servicer.RecordChatbotFeedback(
             pb2.RecordChatbotFeedbackRequest(
-                message_id=message_id,
-                event_type=pb2.CHATBOT_FEEDBACK_EVENT_TYPE_HELPFUL,
-                idempotency_key="idem-2",
-            ),
-            FakeContext(metadata=[("x-user-id", "other_user")]),
-        )
+            message_id=message_id,
+            event_type=pb2.CHATBOT_FEEDBACK_EVENT_TYPE_HELPFUL,
+            idempotency_key="idem-2",
+        ),
+        FakeContext(
+            metadata=[("x-user-id", "other_user"), ("authorization", "Bearer token")]
+        ),
+    )
 
     assert exc_info.value.code == grpc.StatusCode.INVALID_ARGUMENT
