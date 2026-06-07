@@ -30,6 +30,7 @@ stable.
 | 014 | `014-production-chatbot-routing-diversity.md` | Production routing, venue intent, and alternative recommendation diversity |
 | 015 | `015-production-harden-routing.md` | Production routing hardening (venue follow-up, context-driven request filters) |
 | 016 | `016-production-storage-hardening.md` | Async persistence hardening for queue-full and write reliability |
+| 017 | `017-intent-context-hardening.md` | Context-aware intent routing for ambiguous venue follow-up and intent continuity |
 
 ## Non-Negotiable Rules
 

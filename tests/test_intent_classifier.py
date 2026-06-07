@@ -41,3 +41,34 @@ def test_infer_beverage_diversity_mode_for_follow_up():
     assert infer_beverage_diversity_mode("다른 술 추천해줘") == "DIFFERENT_STYLE"
     assert infer_beverage_diversity_mode("비슷한 향이 좋은 술 추천") == "MORE_LIKE_THIS"
     assert infer_beverage_diversity_mode("완전 새로운 분위기의 술") == "DIFFERENT_STYLE"
+
+
+def test_uses_previous_venue_intent_on_ambiguous_follow_up():
+    classifier = IntentClassifier()
+
+    assert (
+        classifier.classify(
+            "다른 곳 추천해줘",
+            previous_intent=ChatbotIntent.FIND_NEARBY_VENUE,
+        )
+        == ChatbotIntent.FIND_NEARBY_VENUE
+    )
+    assert (
+        classifier.classify(
+            "다음 장소도 추천해줘",
+            previous_intent=ChatbotIntent.COMPARE_PURCHASE_OPTIONS,
+        )
+        == ChatbotIntent.FIND_NEARBY_VENUE
+    )
+
+
+def test_preserves_beverage_intent_on_explicit_beverage_follow_up():
+    classifier = IntentClassifier()
+
+    assert (
+        classifier.classify(
+            "다른 술 추천해줘",
+            previous_intent=ChatbotIntent.FIND_NEARBY_VENUE,
+        )
+        == ChatbotIntent.RECOMMEND_BEVERAGE
+    )

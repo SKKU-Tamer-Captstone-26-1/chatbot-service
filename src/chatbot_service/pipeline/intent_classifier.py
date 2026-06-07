@@ -9,10 +9,17 @@ class IntentClassifier:
     route can make a venue question look like a beverage recommendation.
     """
 
-    def classify(self, message: str) -> ChatbotIntent:
+    def classify(
+        self,
+        message: str,
+        *,
+        previous_intent: ChatbotIntent | None = None,
+    ) -> ChatbotIntent:
         text = message.strip().lower()
         if not text:
             return ChatbotIntent.INSUFFICIENT_DATA
+        if _is_followup_venue(message=text, previous_intent=previous_intent):
+            return ChatbotIntent.FIND_NEARBY_VENUE
         if _contains_any(text, _COMPARISON_KEYWORDS):
             return ChatbotIntent.COMPARE_PURCHASE_OPTIONS
         if _contains_any(text, _VENUE_KEYWORDS):
@@ -46,6 +53,19 @@ def infer_beverage_diversity_mode(message: str) -> str:
 
 def _contains_any(text: str, words: tuple[str, ...]) -> bool:
     return any(word in text for word in words)
+
+
+def _is_followup_venue(message: str, previous_intent: ChatbotIntent | None) -> bool:
+    if previous_intent not in {
+        ChatbotIntent.FIND_NEARBY_VENUE,
+        ChatbotIntent.COMPARE_PURCHASE_OPTIONS,
+    }:
+        return False
+
+    if _contains_any(message, _BEVERAGE_FOLLOWUP_DISAMBIGUATORS):
+        return False
+
+    return _contains_any(message, _VENUE_FOLLOWUP_KEYWORDS)
 
 
 _COMPARISON_KEYWORDS = (
@@ -107,6 +127,25 @@ _BEVERAGE_ALT_KEYWORDS = (
     "한잔할래",
 )
 
+_BEVERAGE_FOLLOWUP_DISAMBIGUATORS = (
+    "술",
+    "위스키",
+    "와인",
+    "맥주",
+    "칵테일",
+    "전통주",
+    "사케",
+    "진",
+    "럼",
+    "보드카",
+    "주류",
+    "한잔",
+    "한잔할",
+    "한잔할래",
+    "비슷한",
+    "맛",
+)
+
 _DIVERSE_BEVERAGE_KEYWORDS = (
     "다른 장소",
     "다른 곳",
@@ -145,4 +184,15 @@ _EXPERIMENTAL_DIVERSITY_KEYWORDS = (
     "탐색",
     "발품",
     "추천 뭐",
+)
+
+_VENUE_FOLLOWUP_KEYWORDS = (
+    "다른 곳",
+    "다른 장소",
+    "다른 바",
+    "다른 술집",
+    "근처 다른",
+    "다음 장소",
+    "또 다른 곳",
+    "다시 추천",
 )

@@ -57,8 +57,20 @@ class ChatbotPipeline:
         started_at = time.perf_counter()
         status = "error"
         try:
-            intent = self._intent_classifier.classify(request.message)
-            request = await self._apply_conversation_context(request, caller, intent)
+            conversation_hints = await self._load_conversation_context_hints(
+                request=request,
+                caller=caller,
+            )
+            intent = self._intent_classifier.classify(
+                request.message,
+                previous_intent=conversation_hints.last_assistant_intent,
+            )
+            request = await self._apply_conversation_context(
+                request=request,
+                caller=caller,
+                intent=intent,
+                context_hints=conversation_hints,
+            )
             context = await self._context_builder.build(intent, request, caller)
 
             guarded = self._guardrails.enforce(intent, context)
@@ -141,19 +153,18 @@ class ChatbotPipeline:
         request: ChatbotRequest,
         caller: CallerContext,
         intent: ChatbotIntent,
+        context_hints: _ConversationContextHints | None = None,
     ) -> ChatbotRequest:
         if self._conversation_repository is None:
             return request
         if not request.conversation_id:
             return request
 
-        context_hints = await _conversation_context_for_request(
-            repository=self._conversation_repository,
-            user_id=caller.user_id,
-            conversation_id=request.conversation_id,
-            request_message=request,
-            intent=intent,
-        )
+        if context_hints is None:
+            context_hints = await self._conversation_context_for_request(
+                request=request,
+                caller=caller,
+            )
 
         client_context = dict(request.client_context)
 
@@ -190,6 +201,31 @@ class ChatbotPipeline:
             request,
             selected_beverage_id=selected_beverage_id,
             client_context=client_context,
+        )
+
+    async def _load_conversation_context_hints(
+        self,
+        request: ChatbotRequest,
+        caller: CallerContext,
+    ) -> _ConversationContextHints:
+        if self._conversation_repository is None or not request.conversation_id:
+            return _ConversationContextHints()
+
+        return await self._conversation_context_for_request(
+            request=request,
+            caller=caller,
+        )
+
+    async def _conversation_context_for_request(
+        self,
+        request: ChatbotRequest,
+        caller: CallerContext,
+    ) -> _ConversationContextHints:
+        return await _conversation_context_for_request(
+            repository=self._conversation_repository,
+            user_id=caller.user_id,
+            conversation_id=request.conversation_id,
+            request_message=request,
         )
 
     async def _build_context_json(self, context: object) -> tuple[str, str]:
@@ -326,7 +362,6 @@ async def _conversation_context_for_request(
     user_id: str,
     conversation_id: str,
     request_message: ChatbotRequest,
-    intent: ChatbotIntent,
 ) -> _ConversationContextHints:
     try:
         messages, _ = await repository.get_messages(
@@ -340,7 +375,6 @@ async def _conversation_context_for_request(
 
     return _build_conversation_context_hints(
         request=request_message,
-        intent=intent,
         messages=messages,
     )
 
@@ -348,12 +382,12 @@ async def _conversation_context_for_request(
 def _build_conversation_context_hints(
     *,
     request: ChatbotRequest,
-    intent: ChatbotIntent,
     messages: list[dict],
 ) -> _ConversationContextHints:
     previous_beverage_ids: list[str] = []
     previous_result_ids: list[str] = []
     selected_beverage_id = ""
+    last_assistant_intent: ChatbotIntent | None = None
 
     for message in reversed(messages):
         if str(message.get("role", "")).upper() not in {
@@ -370,17 +404,26 @@ def _build_conversation_context_hints(
             _extend_unique(previous_beverage_ids, used_sources.get("beverage_ids", []))
             _extend_unique(previous_result_ids, used_sources.get("beverage_result_ids", []))
 
+        if last_assistant_intent is None:
+            last_assistant_intent = _extract_assistant_intent(metadata.get("intent"))
+
         for card in metadata.get("cards", []) if isinstance(metadata.get("cards"), list) else []:
             if not isinstance(card, dict):
                 continue
             detail = card.get("detail")
             if not isinstance(detail, dict):
                 continue
-            beverage_card = detail.get("beverage_recommendation")
-            if not isinstance(beverage_card, dict):
-                continue
-            _extend_unique(previous_beverage_ids, beverage_card.get("beverage_id", ""))
-            _extend_unique(previous_result_ids, beverage_card.get("result_id", ""))
+
+            for card_key in (
+                "beverage_recommendation",
+                "venue_recommendation",
+                "purchase_option",
+            ):
+                item = detail.get(card_key)
+                if not isinstance(item, dict):
+                    continue
+                _extend_unique(previous_beverage_ids, item.get("beverage_id", ""))
+                _extend_unique(previous_result_ids, item.get("result_id", ""))
 
         if not selected_beverage_id:
             selected_beverage_id = previous_beverage_ids[0] if previous_beverage_ids else ""
@@ -388,15 +431,25 @@ def _build_conversation_context_hints(
         if previous_beverage_ids and previous_result_ids:
             break
 
-    if not _requires_venue_selected_beverage(intent):
-        selected_beverage_id = ""
-
     return _ConversationContextHints(
         previous_beverage_ids=previous_beverage_ids,
         previous_result_ids=previous_result_ids,
         selected_beverage_id=selected_beverage_id,
         session_context_id=request.conversation_id,
+        last_assistant_intent=last_assistant_intent,
     )
+
+
+def _extract_assistant_intent(value: object) -> ChatbotIntent | None:
+    if value is None:
+        return None
+    if isinstance(value, ChatbotIntent):
+        return value
+    normalized = str(value).strip().upper()
+    for intent in ChatbotIntent:
+        if normalized in {intent.value, intent.name, f"CHATBOT_INTENT_{intent.name}"}:
+            return intent
+    return None
 
 
 def _extend_unique(values: list[str], source: object) -> None:
@@ -423,6 +476,7 @@ class _ConversationContextHints:
     previous_result_ids: list[str] = field(default_factory=list)
     selected_beverage_id: str = ""
     session_context_id: str = ""
+    last_assistant_intent: ChatbotIntent | None = None
 
 
 def _context_hash(context: object) -> str:
