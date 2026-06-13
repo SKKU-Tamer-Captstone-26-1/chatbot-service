@@ -54,12 +54,22 @@ def infer_beverage_diversity_mode(message: str) -> str:
     if not text:
         return ""
     if any(word in text for word in _EXPERIMENTAL_DIVERSITY_KEYWORDS):
-        return "EXPLORE"
+        return "BEVERAGE_DIVERSITY_MODE_DIFFERENT"
     if any(word in text for word in _LIKE_KEYWORDS):
-        return "MORE_LIKE_THIS"
+        return "BEVERAGE_DIVERSITY_MODE_ADJACENT"
     if any(word in text for word in _DIFFERENT_STYLE_KEYWORDS):
-        return "DIFFERENT_STYLE"
-    return "DIFFERENT_STYLE" if is_diverse_beverage_request(text) else ""
+        return "BEVERAGE_DIVERSITY_MODE_DIFFERENT"
+    return "BEVERAGE_DIVERSITY_MODE_DIFFERENT" if is_diverse_beverage_request(text) else ""
+
+
+def infer_beverage_flavor_direction(message: str) -> str:
+    text = message.strip().lower()
+    if not text:
+        return ""
+    for direction, keywords in _FLAVOR_DIRECTION_KEYWORDS:
+        if any(keyword in text for keyword in keywords):
+            return direction
+    return ""
 
 
 def _contains_any(text: str, words: tuple[str, ...]) -> bool:
@@ -272,6 +282,16 @@ _BEVERAGE_SCORE_TERMS = (
     ("술", 4),
     ("진", 3),
     ("럼", 3),
+    ("피트", 3),
+    ("스모키", 3),
+    ("달게", 3),
+    ("달콤", 3),
+    ("덜 달", 3),
+    ("가볍", 3),
+    ("산뜻", 3),
+    ("묵직", 3),
+    ("허브", 3),
+    ("쓴맛", 3),
     ("추천", 1),
 )
 
@@ -377,4 +397,18 @@ _VENUE_FOLLOWUP_KEYWORDS = (
     "다음 장소",
     "또 다른 곳",
     "다시 추천",
+)
+
+_FLAVOR_DIRECTION_KEYWORDS = (
+    ("BEVERAGE_FLAVOR_DIRECTION_LIGHTER", ("가볍", "가벼", "산뜻", "라이트", "청량")),
+    ("BEVERAGE_FLAVOR_DIRECTION_RICHER", ("묵직", "진하게", "리치", "풀바디")),
+    (
+        "BEVERAGE_FLAVOR_DIRECTION_LESS_SMOKY",
+        ("덜 피트", "피트향은 줄", "피트 줄", "덜 스모키", "스모키 줄"),
+    ),
+    ("BEVERAGE_FLAVOR_DIRECTION_SMOKIER", ("스모키", "피트", "훈연", "연기")),
+    ("BEVERAGE_FLAVOR_DIRECTION_LESS_SWEET", ("덜 달", "달지 않", "드라이", "담백")),
+    ("BEVERAGE_FLAVOR_DIRECTION_SWEETER", ("더 달", "달게", "달콤", "스위트")),
+    ("BEVERAGE_FLAVOR_DIRECTION_MORE_HERBAL_BITTER", ("허브", "허벌", "쌉쌀", "쓴맛", "비터")),
+    ("BEVERAGE_FLAVOR_DIRECTION_BRIGHTER_FRUITY", ("상큼", "과일", "프루티", "밝은", "산미")),
 )

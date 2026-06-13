@@ -114,6 +114,9 @@ async def test_grpc_recommendation_client_maps_beverage_request(monkeypatch):
         category="whiskey",
         limit=3,
         budget_mode="BUDGET_MODE_STRICT",
+        exclude_result_ids=["result_0"],
+        diversity_mode="DIFFERENT",
+        flavor_direction="LIGHTER",
     )
 
     stub = FakeRecommendationStub.instances[0]
@@ -124,6 +127,9 @@ async def test_grpc_recommendation_client_maps_beverage_request(monkeypatch):
     assert request.category == "whiskey"
     assert request.limit == 3
     assert request.budget_mode == pb2.BUDGET_MODE_STRICT
+    assert list(request.exclude_result_ids) == ["result_0"]
+    assert request.diversity_mode == pb2.BEVERAGE_DIVERSITY_MODE_DIFFERENT
+    assert request.flavor_direction == pb2.BEVERAGE_FLAVOR_DIRECTION_LIGHTER
     assert metadata == [("authorization", "Bearer token")]
     assert timeout == 1.234
     assert response["request_id"] == "bev_req_1"
@@ -191,6 +197,7 @@ async def test_grpc_recommendation_client_maps_venue_and_event_requests(monkeypa
         radius_m=1500,
         limit=2,
         budget_mode="BUDGET_MODE_SOFT",
+        place_types=["bar", "bottle_shop"],
     )
     await client.record_recommendation_event(
         {"x-user-id": "user_1"},
@@ -208,6 +215,7 @@ async def test_grpc_recommendation_client_maps_venue_and_event_requests(monkeypa
     assert venue_call[1].selected_beverage_id == "bev_1"
     assert venue_call[1].lat == 37.5
     assert venue_call[1].budget_mode == pb2.BUDGET_MODE_SOFT
+    assert list(venue_call[1].place_types) == ["bar", "bottle_shop"]
     assert event_call[1].event_type == pb2.RECOMMENDATION_EVENT_TYPE_CLICK
     assert event_call[1].metadata["surface"] == "chatbot"
 
@@ -237,7 +245,7 @@ def test_recommendation_client_helper_tolerates_missing_diversity_enum() -> None
     class DummyPb2:
         pass
 
-    _set_diversity_mode_field(request, DummyPb2(), "diversity_mode", "EXPLORE")
+    _set_diversity_mode_field(request, DummyPb2(), "diversity_mode", "DIFFERENT")
     assert request.diversity_mode is None
 
 
@@ -245,9 +253,8 @@ def test_recommendation_client_helper_supports_explicit_diversity_mode_values() 
     request = _DummyRequest()
 
     class DummyPb2:
-        DIVERSITY_MODE_EXPERIMENTAL = 17
-        DIVERSITY_MODE_UNSPECIFIED = 0
-        DIVERSITY_MODE_EXPLORE = 17
+        BEVERAGE_DIVERSITY_MODE_DIFFERENT = 17
+        BEVERAGE_DIVERSITY_MODE_UNSPECIFIED = 0
 
-    _set_diversity_mode_field(request, DummyPb2(), "diversity_mode", "EXPLORE")
+    _set_diversity_mode_field(request, DummyPb2(), "diversity_mode", "DIFFERENT")
     assert request.diversity_mode == 17

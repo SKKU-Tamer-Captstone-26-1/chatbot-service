@@ -15,6 +15,7 @@ from chatbot_service.pipeline.context_builder import RecommendationContextBuilde
 from chatbot_service.pipeline.guardrails import Guardrails
 from chatbot_service.pipeline.intent_classifier import (
     IntentClassifier,
+    infer_beverage_flavor_direction,
     is_diverse_beverage_request,
 )
 from chatbot_service.pipeline.llm_adapter import LLMAdapter, LLMGenerationError
@@ -207,7 +208,11 @@ class ChatbotPipeline:
         ):
             selected_beverage_id = context_hints.selected_beverage_id
 
-        if not is_diverse_beverage_request(request.message):
+        is_beverage_followup = (
+            is_diverse_beverage_request(request.message)
+            or bool(infer_beverage_flavor_direction(request.message))
+        )
+        if not is_beverage_followup:
             return replace(
                 request,
                 selected_beverage_id=selected_beverage_id,

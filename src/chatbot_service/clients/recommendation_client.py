@@ -194,11 +194,21 @@ class GrpcRecommendationClient:
         _set_repeated_string_field(
             request, "exclude_result_ids", filters.get("exclude_result_ids")
         )
-        _set_diversity_mode_field(
+        _set_enum_field(
             request,
             pb2,
             "diversity_mode",
             filters.get("diversity_mode"),
+            "BEVERAGE_DIVERSITY_MODE_",
+            "BEVERAGE_DIVERSITY_MODE_UNSPECIFIED",
+        )
+        _set_enum_field(
+            request,
+            pb2,
+            "flavor_direction",
+            filters.get("flavor_direction"),
+            "BEVERAGE_FLAVOR_DIRECTION_",
+            "BEVERAGE_FLAVOR_DIRECTION_UNSPECIFIED",
         )
         _set_optional_string_field(
             request,
@@ -237,23 +247,7 @@ class GrpcRecommendationClient:
                 "BUDGET_MODE_UNSPECIFIED",
             ),
         )
-        _set_repeated_string_field(
-            request, "exclude_beverage_ids", filters.get("exclude_beverage_ids")
-        )
-        _set_repeated_string_field(
-            request, "exclude_result_ids", filters.get("exclude_result_ids")
-        )
-        _set_diversity_mode_field(
-            request,
-            pb2,
-            "diversity_mode",
-            filters.get("diversity_mode"),
-        )
-        _set_optional_string_field(
-            request,
-            "session_context_id",
-            filters.get("session_context_id"),
-        )
+        _set_repeated_string_field(request, "place_types", filters.get("place_types"))
         try:
             response = await stub.GetVenueRecommendations(
                 request,
@@ -437,11 +431,13 @@ def _set_optional_string_field(request: Any, name: str, value: Any) -> None:
     setattr(request, name, text)
 
 
-def _set_diversity_mode_field(
+def _set_enum_field(
     request: Any,
     pb2: Any,
     name: str,
     value: Any,
+    prefix: str,
+    default: str,
 ) -> None:
     if not hasattr(request, name):
         return
@@ -455,13 +451,29 @@ def _set_diversity_mode_field(
         return
     normalized = mode.replace(" ", "_").upper()
     candidates = [normalized]
-    if not normalized.startswith("DIVERSITY_MODE_"):
-        candidates.append(f"DIVERSITY_MODE_{normalized}")
+    if not normalized.startswith(prefix):
+        candidates.append(f"{prefix}{normalized}")
 
     for candidate in candidates:
         if hasattr(pb2, candidate):
             setattr(request, name, int(getattr(pb2, candidate)))
             return
 
-    if hasattr(pb2, "DIVERSITY_MODE_UNSPECIFIED"):
-        setattr(request, name, int(pb2.DIVERSITY_MODE_UNSPECIFIED))
+    if hasattr(pb2, default):
+        setattr(request, name, int(getattr(pb2, default)))
+
+
+def _set_diversity_mode_field(
+    request: Any,
+    pb2: Any,
+    name: str,
+    value: Any,
+) -> None:
+    _set_enum_field(
+        request,
+        pb2,
+        name,
+        value,
+        "BEVERAGE_DIVERSITY_MODE_",
+        "BEVERAGE_DIVERSITY_MODE_UNSPECIFIED",
+    )

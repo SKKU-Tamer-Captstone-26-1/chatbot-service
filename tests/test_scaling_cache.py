@@ -194,7 +194,8 @@ async def test_beverage_cache_distinguishes_diversity_filters_and_session_contex
         budget_mode="BUDGET_MODE_SOFT",
         limit=3,
         exclude_beverage_ids=["bev_2", "bev_1"],
-        diversity_mode="DIFFERENT_STYLE",
+        diversity_mode="BEVERAGE_DIVERSITY_MODE_DIFFERENT",
+        flavor_direction="BEVERAGE_FLAVOR_DIRECTION_LIGHTER",
         session_context_id="conv-1",
     )
     await client.get_beverage_recommendations(
@@ -204,7 +205,8 @@ async def test_beverage_cache_distinguishes_diversity_filters_and_session_contex
         budget_mode="BUDGET_MODE_SOFT",
         limit=3,
         exclude_beverage_ids=["bev_1", "bev_2"],
-        diversity_mode="DIFFERENT_STYLE",
+        diversity_mode="BEVERAGE_DIVERSITY_MODE_DIFFERENT",
+        flavor_direction="BEVERAGE_FLAVOR_DIRECTION_LIGHTER",
         session_context_id="conv-1",
     )
     await client.get_beverage_recommendations(
@@ -214,7 +216,8 @@ async def test_beverage_cache_distinguishes_diversity_filters_and_session_contex
         budget_mode="BUDGET_MODE_SOFT",
         limit=3,
         exclude_beverage_ids=["bev_2", "bev_1"],
-        diversity_mode="DIFFERENT_STYLE",
+        diversity_mode="BEVERAGE_DIVERSITY_MODE_DIFFERENT",
+        flavor_direction="BEVERAGE_FLAVOR_DIRECTION_LIGHTER",
         session_context_id="conv-2",
     )
 
@@ -222,7 +225,7 @@ async def test_beverage_cache_distinguishes_diversity_filters_and_session_contex
 
 
 @pytest.mark.anyio
-async def test_venue_cache_includes_diversity_context_filters():
+async def test_venue_cache_includes_place_type_filters():
     inner = CountingRecommendationClient()
     client = _cached_client(inner)
     auth_metadata = {"x-user-id": "user_123"}
@@ -236,9 +239,7 @@ async def test_venue_cache_includes_diversity_context_filters():
         radius_m=1000,
         budget_mode="BUDGET_MODE_SOFT",
         limit=3,
-        exclude_result_ids=["v1", "v2"],
-        diversity_mode="DIFFERENT_STYLE",
-        session_context_id="conv-1",
+        place_types=["bar", "bottle_shop"],
     )
     await client.get_venue_recommendations(
         auth_metadata,
@@ -249,9 +250,7 @@ async def test_venue_cache_includes_diversity_context_filters():
         radius_m=1000,
         budget_mode="BUDGET_MODE_SOFT",
         limit=3,
-        exclude_result_ids=["v2", "v1"],
-        diversity_mode="DIFFERENT_STYLE",
-        session_context_id="conv-1",
+        place_types=["bottle_shop", "bar"],
     )
     await client.get_venue_recommendations(
         auth_metadata,
@@ -262,9 +261,7 @@ async def test_venue_cache_includes_diversity_context_filters():
         radius_m=1000,
         budget_mode="BUDGET_MODE_SOFT",
         limit=3,
-        exclude_result_ids=["v1", "v2"],
-        diversity_mode="MORE_LIKE_THIS",
-        session_context_id="conv-1",
+        place_types=["store"],
     )
 
     assert inner.venue_calls == 2

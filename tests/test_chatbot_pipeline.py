@@ -516,8 +516,30 @@ async def test_pipeline_forwards_diversity_context_on_follow_up_request():
     assert auth_metadata["authorization"] == "Bearer token"
     assert sorted(filters["exclude_beverage_ids"]) == ["bev_1", "bev_2"]
     assert sorted(filters["exclude_result_ids"]) == ["result_1", "result_2"]
-    assert filters["diversity_mode"] == "DIFFERENT_STYLE"
+    assert filters["diversity_mode"] == "BEVERAGE_DIVERSITY_MODE_DIFFERENT"
     assert filters["session_context_id"] == "conv-1"
+
+
+@pytest.mark.anyio
+async def test_pipeline_forwards_flavor_direction_on_beverage_follow_up():
+    llm = RecordingLLM()
+    recommendation_client = FakeRecommendationClient()
+    caller = CallerContext(
+        user_id="user_123",
+        metadata={"x-user-id": "user_123", "authorization": "Bearer token"},
+    )
+    request = ChatbotRequest(
+        message="피트향은 줄이고 더 가벼운 걸로 추천해줘",
+        client_context={
+            "previous_result_ids": ["result_2", "result_1"],
+        },
+    )
+
+    await _pipeline(llm, recommendation_client=recommendation_client).ask(request, caller)
+
+    _, filters = recommendation_client.beverage_calls[0]
+    assert sorted(filters["exclude_result_ids"]) == ["result_1", "result_2"]
+    assert filters["flavor_direction"] == "BEVERAGE_FLAVOR_DIRECTION_LIGHTER"
 
 
 @pytest.mark.anyio
@@ -551,7 +573,7 @@ async def test_pipeline_no_new_beverage_candidates_for_diverse_request_returns_f
 
 
 @pytest.mark.anyio
-async def test_pipeline_no_new_venue_candidates_for_diverse_request_returns_fallback():
+async def test_pipeline_does_not_apply_beverage_diversity_filters_to_venue_request():
     llm = RecordingLLM()
     recommendation_client = FakeRecommendationClient()
 
@@ -577,11 +599,12 @@ async def test_pipeline_no_new_venue_candidates_for_diverse_request_returns_fall
         ),
     )
 
-    assert answer.status == ChatbotResponseStatus.INSUFFICIENT_DATA
-    assert answer.intent == "INSUFFICIENT_DATA"
-    assert answer.missing_facts == ["venue_recommendation_candidates_exhausted"]
-    assert "다른 추천 후보" in answer.answer
-    assert llm.calls == []
+    assert answer.status == ChatbotResponseStatus.ANSWERED
+    _, _, _, filters = recommendation_client.venue_calls[0]
+    assert filters["selected_beverage_id"] == "bev_1"
+    assert "exclude_result_ids" not in filters
+    assert "exclude_beverage_ids" not in filters
+    assert "diversity_mode" not in filters
 
 
 @pytest.mark.anyio
@@ -903,7 +926,7 @@ async def test_pipeline_reuses_latest_conversation_context_when_screen_context_u
 
 
 @pytest.mark.anyio
-async def test_pipeline_forwards_venue_filters_for_diversity_request():
+async def test_pipeline_forwards_place_type_filters_for_venue_request():
     llm = RecordingLLM()
     recommendation_client = FakeRecommendationClient()
     answer = await _pipeline(llm, recommendation_client=recommendation_client).ask(
@@ -914,9 +937,7 @@ async def test_pipeline_forwards_venue_filters_for_diversity_request():
             radius_m=1500,
             selected_beverage_id="bev_1",
             client_context={
-                "previous_beverage_ids": ["bev_2"],
-                "previous_result_ids": ["venue_result_2"],
-                "session_context_id": "conv-1",
+                "place_types": ["bar", "bottle_shop"],
             },
         ),
         CallerContext(
@@ -926,10 +947,7 @@ async def test_pipeline_forwards_venue_filters_for_diversity_request():
     )
 
     _, _, _, filters = recommendation_client.venue_calls[0]
-    assert filters["exclude_beverage_ids"] == ["bev_2"]
-    assert filters["exclude_result_ids"] == ["venue_result_2"]
-    assert filters["session_context_id"] == "conv-1"
-    assert filters["diversity_mode"] == "DIFFERENT_STYLE"
+    assert filters["place_types"] == ["bar", "bottle_shop"]
     assert answer.status == ChatbotResponseStatus.ANSWERED
 
 

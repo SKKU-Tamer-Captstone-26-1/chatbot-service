@@ -2,6 +2,7 @@ from chatbot_service.domain.intents import ChatbotIntent
 from chatbot_service.pipeline.intent_classifier import (
     IntentClassifier,
     infer_beverage_diversity_mode,
+    infer_beverage_flavor_direction,
 )
 
 
@@ -64,9 +65,27 @@ def test_classify_out_of_scope():
 
 
 def test_infer_beverage_diversity_mode_for_follow_up():
-    assert infer_beverage_diversity_mode("다른 술 추천해줘") == "DIFFERENT_STYLE"
-    assert infer_beverage_diversity_mode("비슷한 향이 좋은 술 추천") == "MORE_LIKE_THIS"
-    assert infer_beverage_diversity_mode("완전 새로운 분위기의 술") == "DIFFERENT_STYLE"
+    assert infer_beverage_diversity_mode("다른 술 추천해줘") == (
+        "BEVERAGE_DIVERSITY_MODE_DIFFERENT"
+    )
+    assert infer_beverage_diversity_mode("비슷한 향이 좋은 술 추천") == (
+        "BEVERAGE_DIVERSITY_MODE_ADJACENT"
+    )
+    assert infer_beverage_diversity_mode("완전 새로운 분위기의 술") == (
+        "BEVERAGE_DIVERSITY_MODE_DIFFERENT"
+    )
+
+
+def test_infer_beverage_flavor_direction_for_follow_up():
+    assert infer_beverage_flavor_direction("피트향은 줄이고 더 가벼운 걸로 추천해줘") == (
+        "BEVERAGE_FLAVOR_DIRECTION_LIGHTER"
+    )
+    assert infer_beverage_flavor_direction("덜 피트한 쪽으로 추천해줘") == (
+        "BEVERAGE_FLAVOR_DIRECTION_LESS_SMOKY"
+    )
+    assert infer_beverage_flavor_direction("더 달게 추천해줘") == (
+        "BEVERAGE_FLAVOR_DIRECTION_SWEETER"
+    )
 
 
 def test_uses_previous_venue_intent_on_ambiguous_follow_up():

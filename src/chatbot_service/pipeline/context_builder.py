@@ -13,6 +13,7 @@ from chatbot_service.domain.intents import ChatbotIntent
 from chatbot_service.domain.schemas import CallerContext, ChatbotRequest
 from chatbot_service.pipeline.intent_classifier import (
     infer_beverage_diversity_mode,
+    infer_beverage_flavor_direction,
     is_diverse_beverage_request,
 )
 
@@ -140,6 +141,7 @@ class RecommendationContextBuilder:
                 exclude_beverage_ids=request_filters["exclude_beverage_ids"],
                 exclude_result_ids=request_filters["exclude_result_ids"],
                 diversity_mode=request_filters["diversity_mode"],
+                flavor_direction=request_filters["flavor_direction"],
                 session_context_id=request_filters["session_context_id"],
                 profile_revision=profile_revision,
             )
@@ -243,10 +245,7 @@ class RecommendationContextBuilder:
                 limit=request.venue_limit,
                 budget_mode=request.budget_mode,
                 profile_revision=profile_revision,
-                exclude_beverage_ids=venue_filters["exclude_beverage_ids"],
-                exclude_result_ids=venue_filters["exclude_result_ids"],
-                diversity_mode=venue_filters["diversity_mode"],
-                session_context_id=venue_filters["session_context_id"],
+                place_types=venue_filters["place_types"],
             )
         except RecommendationClientError:
             return GroundedContext(
@@ -258,20 +257,6 @@ class RecommendationContextBuilder:
             return GroundedContext(
                 intent=intent.value,
                 missing_facts=["fresh_venue_recommendation_candidates"],
-            )
-
-        if _diversity_exhausted(
-            venue_filters["diversity_mode"],
-            recommendations,
-            venue_filters["exclude_result_ids"],
-        ):
-            return GroundedContext(
-                intent=intent.value,
-                facts={
-                    "profile_status": profile_status,
-                    "profile_revision": profile_revision,
-                },
-                missing_facts=["venue_recommendation_candidates_exhausted"],
             )
 
         request_id = str(_read_field(response, "request_id", ""))
@@ -320,6 +305,10 @@ def _build_beverage_request_filters(request: ChatbotRequest) -> dict[str, Any]:
             request.client_context.get("diversity_mode"),
             request.message,
         ),
+        "flavor_direction": _infer_beverage_flavor_direction(
+            request.client_context.get("flavor_direction"),
+            request.message,
+        ),
         "session_context_id": str(
             _first_non_none(
                 request.client_context.get("session_context_id"),
@@ -345,31 +334,12 @@ def _build_venue_request_filters(
             ),
             0,
         ),
-        "exclude_beverage_ids": _to_string_list(
+        "place_types": _to_string_list(
             _first_non_none(
-                request.client_context.get("exclude_beverage_ids"),
-                request.client_context.get("previous_beverage_ids"),
-                request.client_context.get("beverage_ids"),
+                request.client_context.get("place_types"),
+                request.client_context.get("place_type"),
             )
         ),
-        "exclude_result_ids": _to_string_list(
-            _first_non_none(
-                request.client_context.get("exclude_result_ids"),
-                request.client_context.get("previous_result_ids"),
-                request.client_context.get("result_ids"),
-            )
-        ),
-        "diversity_mode": _infer_beverage_diversity_mode(
-            request.client_context.get("diversity_mode"),
-            request.message,
-        ),
-        "session_context_id": str(
-            _first_non_none(
-                request.client_context.get("session_context_id"),
-                request.conversation_id,
-            )
-            or ""
-        ).strip(),
     }
 
 
@@ -379,6 +349,15 @@ def _infer_beverage_diversity_mode(client_mode: Any, message: str) -> str:
     if client_mode is None:
         return ""
     return str(client_mode).strip()
+
+
+def _infer_beverage_flavor_direction(client_direction: Any, message: str) -> str:
+    inferred = infer_beverage_flavor_direction(message)
+    if inferred:
+        return inferred
+    if client_direction is None:
+        return ""
+    return str(client_direction).strip()
 
 
 def _first_non_none(*values: Any) -> Any:
